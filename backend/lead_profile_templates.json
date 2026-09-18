@@ -1,0 +1,109 @@
+[
+  {
+    "name": "Enterprise DevOps Platform",
+    "icp_description": "We sell a CI/CD and infrastructure observability platform to engineering organizations with more than 50 engineers. Buyers are VP Engineering, Head of Platform, or DevOps leads who own build pipelines and production reliability. We do not target agencies or single-developer teams.",
+    "criteria": [
+      {
+        "name": "Decision-maker access",
+        "description": "The lead content identifies a contact with authority over engineering tooling, such as VP Engineering, Head of Platform, or a senior DevOps lead.",
+        "weight": 3
+      },
+      {
+        "name": "Technical pain point",
+        "description": "The lead states a concrete problem with build speed, deployment reliability, or infrastructure visibility.",
+        "weight": 3
+      },
+      {
+        "name": "Team size sufficient",
+        "description": "The lead states or clearly implies an engineering team of 50 or more people.",
+        "weight": 2
+      },
+      {
+        "name": "Existing tooling mentioned",
+        "description": "The lead references current CI/CD, cloud, or observability tooling being used or replaced.",
+        "weight": 1
+      }
+    ],
+    "industry_levels": [
+      "Irrelevant sector with no software engineering function",
+      "Adjacent sector with a small or outsourced engineering team",
+      "Core target: software, SaaS, or technology-driven engineering organization"
+    ],
+    "maturity_levels": [
+      "No funding or team information stated",
+      "Early-stage startup, seed to Series A",
+      "Growth-stage company, Series B or later",
+      "Established mid-market or enterprise organization"
+    ],
+    "intent_levels": [
+      "No stated need or evaluation activity",
+      "Passive interest, such as a newsletter signup or content download",
+      "Actively comparing vendors or requesting a demo",
+      "Stated budget and timeline to purchase"
+    ],
+    "routing": [
+      {
+        "name": "immediate_sdr_outreach",
+        "description": "Strong ICP fit, decision-maker access, and active buying intent. Route to an SDR for immediate outreach."
+      },
+      {
+        "name": "nurture_sequence",
+        "description": "Reasonable ICP fit but low urgency or no confirmed decision-maker. Add to a nurture email sequence."
+      },
+      {
+        "name": "disqualify",
+        "description": "Poor ICP fit, wrong industry, or no evidence of a real business need. Disqualify the lead."
+      }
+    ]
+  },
+  {
+    "name": "Mid-Market Fintech Compliance",
+    "icp_description": "We sell automated transaction-monitoring and compliance software to banks, payment processors, and lending platforms with regulatory reporting obligations. Buyers are Heads of Compliance, Risk Officers, or General Counsel. We do not target unregulated retail or consumer apps.",
+    "criteria": [
+      {
+        "name": "Regulatory obligation",
+        "description": "The lead content states a regulatory reporting, KYC, or AML obligation relevant to financial services.",
+        "weight": 3
+      },
+      {
+        "name": "Compliance buyer identified",
+        "description": "The lead identifies a contact responsible for compliance, risk, or legal functions.",
+        "weight": 3
+      },
+      {
+        "name": "Manual process pain point",
+        "description": "The lead describes a current manual, slow, or error-prone compliance process.",
+        "weight": 2
+      }
+    ],
+    "industry_levels": [
+      "Non-financial business with no regulatory reporting need",
+      "Adjacent financial service with limited regulatory scope",
+      "Core target: bank, payment processor, or lending platform with direct regulatory obligations"
+    ],
+    "maturity_levels": [
+      "No operational scale information stated",
+      "Licensed but small-scale operation",
+      "Established regulated institution with a dedicated compliance function"
+    ],
+    "intent_levels": [
+      "No stated compliance concern",
+      "General awareness of upcoming regulatory change",
+      "Actively seeking a compliance vendor or facing an audit deadline"
+    ],
+    "routing": [
+      {
+        "name": "immediate_sdr_outreach",
+        "description": "Confirmed regulatory obligation, right buyer, and near-term deadline. Route to an SDR for immediate outreach."
+      },
+      {
+        "name": "nurture_sequence",
+        "description": "Fits the regulated profile but no urgent deadline stated. Add to a nurture sequence with compliance-deadline content."
+      },
+      {
+        "name": "disqualify",
+        "description": "No regulatory obligation or the business is out of scope for financial compliance software. Disqualify the lead."
+      }
+    ]
+  }
+]

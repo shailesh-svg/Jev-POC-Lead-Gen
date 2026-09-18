@@ -1,0 +1,382 @@
+[
+  {
+    "name": "Backend Engineer",
+    "category": "Resume",
+    "description": "Build and maintain backend services and APIs. The role covers data storage, testing, security, and production reliability. Assess only professional evidence stated in the resume.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "API development",
+        "description": "Evidence of building and maintaining server-side APIs or services.",
+        "weight": 3
+      },
+      {
+        "name": "Data storage",
+        "description": "Evidence of designing schemas, writing queries, or working with relational or non-relational databases.",
+        "weight": 2
+      },
+      {
+        "name": "Automated testing",
+        "description": "Evidence of writing unit, integration, or API tests.",
+        "weight": 2
+      },
+      {
+        "name": "Production reliability",
+        "description": "Evidence of monitoring, debugging, or improving services in production.",
+        "weight": 2
+      },
+      {
+        "name": "Security practices",
+        "description": "Evidence of implementing authentication, authorization, or input validation.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Frontend Engineer",
+    "category": "Resume",
+    "description": "Build accessible web interfaces and integrate them with backend services. The role requires component design, browser fundamentals, testing, and performance work.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Web application development",
+        "description": "Evidence of building web applications with JavaScript or TypeScript and a component-based framework.",
+        "weight": 3
+      },
+      {
+        "name": "API integration",
+        "description": "Evidence of connecting interfaces to APIs and handling loading, errors, or application state.",
+        "weight": 2
+      },
+      {
+        "name": "Accessibility and responsive design",
+        "description": "Evidence of accessible interfaces or layouts that support multiple screen sizes.",
+        "weight": 2
+      },
+      {
+        "name": "Frontend testing",
+        "description": "Evidence of automated component, interaction, or end-to-end tests.",
+        "weight": 2
+      },
+      {
+        "name": "Performance",
+        "description": "Evidence of measuring or improving rendering, bundle size, or page loading.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Project Manager",
+    "category": "Resume",
+    "description": "Plan and coordinate project work across stakeholders. The role covers scope, schedules, risks, budgets, and progress reporting.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Project planning",
+        "description": "Evidence of creating project plans with scope, milestones, owners, or dependencies.",
+        "weight": 3
+      },
+      {
+        "name": "Risk management",
+        "description": "Evidence of identifying risks and managing mitigation or escalation.",
+        "weight": 2
+      },
+      {
+        "name": "Stakeholder coordination",
+        "description": "Evidence of coordinating stakeholders and reporting project progress.",
+        "weight": 2
+      },
+      {
+        "name": "Budget and resources",
+        "description": "Evidence of managing project budgets, staffing, or resource allocation.",
+        "weight": 2
+      },
+      {
+        "name": "Delivery outcomes",
+        "description": "Evidence of completing projects or meeting documented milestones.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Delivery Manager",
+    "category": "Resume",
+    "description": "Coordinate delivery across teams and maintain a predictable delivery process. The role covers dependencies, blockers, service quality, customer communication, and process improvement.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Multi-team delivery",
+        "description": "Evidence of coordinating delivery across multiple teams or work streams.",
+        "weight": 3
+      },
+      {
+        "name": "Dependencies and blockers",
+        "description": "Evidence of managing dependencies, removing blockers, or escalating delivery risks.",
+        "weight": 2
+      },
+      {
+        "name": "Delivery metrics",
+        "description": "Evidence of using lead time, throughput, quality, or service measures to guide delivery.",
+        "weight": 2
+      },
+      {
+        "name": "Customer communication",
+        "description": "Evidence of managing customer expectations and reporting delivery status.",
+        "weight": 2
+      },
+      {
+        "name": "Continuous improvement",
+        "description": "Evidence of improving team processes or delivery practices.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Sales Executive",
+    "category": "Resume",
+    "description": "Develop business opportunities, manage a sales pipeline, and close relevant deals. Assess prospecting, discovery, negotiation, customer relationships, and stated sales results.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Prospecting",
+        "description": "Evidence of identifying prospects or generating qualified leads.",
+        "weight": 2
+      },
+      {
+        "name": "Discovery and presentations",
+        "description": "Evidence of understanding customer needs and presenting suitable products or services.",
+        "weight": 2
+      },
+      {
+        "name": "Pipeline management",
+        "description": "Evidence of maintaining opportunities, forecasts, or CRM records.",
+        "weight": 2
+      },
+      {
+        "name": "Negotiation and closing",
+        "description": "Evidence of negotiating terms or closing deals.",
+        "weight": 3
+      },
+      {
+        "name": "Sales results",
+        "description": "Explicit evidence of quota attainment, revenue growth, or other measurable sales outcomes.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Business Analyst",
+    "category": "Resume",
+    "description": "Translate business needs into clear requirements and support delivery of process or system changes. The role covers stakeholder discovery, process analysis, documentation, and acceptance testing.",
+    "input_label": "Resume",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Requirements discovery",
+        "description": "Evidence of gathering and analyzing requirements with business stakeholders.",
+        "weight": 3
+      },
+      {
+        "name": "Process analysis",
+        "description": "Evidence of documenting current processes and identifying improvements.",
+        "weight": 2
+      },
+      {
+        "name": "Requirements documentation",
+        "description": "Evidence of writing user stories, specifications, or acceptance criteria.",
+        "weight": 2
+      },
+      {
+        "name": "Data analysis",
+        "description": "Evidence of using data, queries, or reports to support business decisions.",
+        "weight": 1
+      },
+      {
+        "name": "Acceptance testing",
+        "description": "Evidence of planning or supporting user acceptance testing and validating requirements.",
+        "weight": 2
+      }
+    ]
+  },
+  {
+    "name": "Supplier Onboarding Pack",
+    "category": "Document",
+    "description": "Check whether a supplier pack contains the information needed for an initial onboarding review. Assess stated information only. Do not infer legal compliance, certificate authenticity, or supplier approval.",
+    "input_label": "Document",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Business identity",
+        "description": "The pack states the supplier business name and business address.",
+        "weight": 3
+      },
+      {
+        "name": "Contact details",
+        "description": "The pack identifies a business contact and a contact method.",
+        "weight": 2
+      },
+      {
+        "name": "Products and services",
+        "description": "The pack describes the products or services the supplier offers.",
+        "weight": 2
+      },
+      {
+        "name": "Commercial terms",
+        "description": "The pack states pricing or pricing arrangements and payment terms.",
+        "weight": 2
+      },
+      {
+        "name": "Delivery information",
+        "description": "The pack states delivery lead times and delivery locations or coverage.",
+        "weight": 2
+      },
+      {
+        "name": "Supporting documents",
+        "description": "The pack lists supporting documents supplied and identifies their purpose and dates where applicable.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Product Specification",
+    "category": "Document",
+    "description": "Check whether a product document provides enough explicit information to prepare a product listing. Requirements are a generic starting point and must be adapted to the product category. Do not infer product safety or regulatory compliance.",
+    "input_label": "Document",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Product identity",
+        "description": "The document states a product name and a product identifier such as SKU or model number.",
+        "weight": 3
+      },
+      {
+        "name": "Product description",
+        "description": "The document describes the product purpose and main features.",
+        "weight": 2
+      },
+      {
+        "name": "Specifications",
+        "description": "The document states relevant dimensions, materials, capacity, or other measurable specifications.",
+        "weight": 3
+      },
+      {
+        "name": "Packaging",
+        "description": "The document states pack size, units per pack, or packaging details.",
+        "weight": 2
+      },
+      {
+        "name": "Variants",
+        "description": "The document identifies available variants or explicitly states that there are none.",
+        "weight": 1
+      },
+      {
+        "name": "Handling information",
+        "description": "The document includes applicable care, storage, installation, or handling instructions.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Statement of Work",
+    "category": "Document",
+    "description": "Assess whether a statement of work makes project delivery expectations clear. This is an information-completeness review, not a legal assessment.",
+    "input_label": "Document",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Scope and exclusions",
+        "description": "The document defines the work in scope and exclusions or scope boundaries.",
+        "weight": 3
+      },
+      {
+        "name": "Deliverables",
+        "description": "The document specifies concrete deliverables.",
+        "weight": 3
+      },
+      {
+        "name": "Owners and responsibilities",
+        "description": "The document identifies responsibilities of the supplier and customer.",
+        "weight": 2
+      },
+      {
+        "name": "Schedule",
+        "description": "The document includes milestones, dates, or an explicit delivery timeline.",
+        "weight": 2
+      },
+      {
+        "name": "Acceptance criteria",
+        "description": "The document defines how deliverables will be reviewed and accepted.",
+        "weight": 3
+      },
+      {
+        "name": "Change process",
+        "description": "The document states how changes to scope, timing, or cost will be handled.",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "Sales Proposal",
+    "category": "Document",
+    "description": "Assess whether a sales proposal explains the customer need, proposed solution, commercial offer, and next step. Review the content rather than predicting a sales outcome.",
+    "input_label": "Document",
+    "accepted_types": [
+      "pdf"
+    ],
+    "criteria": [
+      {
+        "name": "Customer need",
+        "description": "The proposal identifies the customer problem, need, or objective.",
+        "weight": 3
+      },
+      {
+        "name": "Proposed solution",
+        "description": "The proposal explains the offered solution and how it addresses the stated need.",
+        "weight": 3
+      },
+      {
+        "name": "Scope and deliverables",
+        "description": "The proposal states what is included in the offer.",
+        "weight": 2
+      },
+      {
+        "name": "Price and terms",
+        "description": "The proposal includes a price or pricing basis and relevant commercial terms.",
+        "weight": 2
+      },
+      {
+        "name": "Delivery approach",
+        "description": "The proposal states a delivery approach and expected timeline.",
+        "weight": 1
+      },
+      {
+        "name": "Next step",
+        "description": "The proposal includes a clear next action or approval process.",
+        "weight": 1
+      }
+    ]
+  }
+]
