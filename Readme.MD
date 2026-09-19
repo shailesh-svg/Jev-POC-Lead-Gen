@@ -59,6 +59,19 @@ cd ..
 
 Refresh the browser after the server starts.
 
+## Score several leads at once
+
+In the lead generation tab, separate leads with a line of `---` to score up to
+ten in one pass. They come back ranked by priority, and `Export CSV` saves the
+queue.
+
+## Run the tests
+
+```sh
+.venv/bin/python -m pytest
+cd frontend && npm test
+```
+
 ## If port 8000 is already in use
 
 Use a different port:

@@ -3,6 +3,7 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 from uuid import uuid4
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse, FileResponse
@@ -20,6 +21,8 @@ from .models import Profile, Settings, LeadProfile
 from .prompts import catalog
 
 REQUEST_TIMEOUT = 90
+MAX_BATCH = 10
+BATCH_CONCURRENCY = 3
 
 app = FastAPI(title='Align Workbench API', version='1.0.0')
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
@@ -176,20 +179,46 @@ def delete_lead_profile(id: str):
     if not storage.delete_lead_profile(id):
         raise HTTPException(404, 'Lead profile not found.')
 
+LeadText = Annotated[str, Field(min_length=20, max_length=20000)]
+SCORE_FAILED = 'TypeSafe could not score this lead. Check your account and try again.'
+
 class LeadScoreInput(BaseModel):
     lead_profile_id: str
-    text: str = Field(min_length=20, max_length=20000)
+    text: LeadText
+
+class LeadBatchInput(BaseModel):
+    lead_profile_id: str
+    leads: list[LeadText] = Field(min_length=1, max_length=MAX_BATCH)
+
+def require_lead_profile(id):
+    profile = storage.get_lead_profile(id)
+    if not profile:
+        raise HTTPException(404, 'Lead profile not found.')
+    return profile
 
 @app.post('/api/lead-scores')
 async def lead_score(body: LeadScoreInput):
-    profile = storage.get_lead_profile(body.lead_profile_id)
-    if not profile:
-        raise HTTPException(404, 'Lead profile not found.')
+    profile = require_lead_profile(body.lead_profile_id)
     key = require_key()
-    return await typesafe_call(
-        score_lead(profile, body.text, key),
-        'TypeSafe could not score this lead. Check your account and try again.',
-    )
+    return await typesafe_call(score_lead(profile, body.text, key), SCORE_FAILED)
+
+@app.post('/api/lead-scores/batch')
+async def lead_score_batch(body: LeadBatchInput):
+    """Score a queue of leads, ranked by priority. One bad lead does not sink the batch."""
+    profile = require_lead_profile(body.lead_profile_id)
+    key = require_key()
+    limit = asyncio.Semaphore(BATCH_CONCURRENCY)
+
+    async def score_one(index, text):
+        async with limit:
+            try:
+                return {'index': index, 'result': await typesafe_call(score_lead(profile, text, key), SCORE_FAILED)}
+            except HTTPException as e:
+                return {'index': index, 'error': e.detail}
+
+    scored = await asyncio.gather(*(score_one(i, text) for i, text in enumerate(body.leads)))
+    ranked = sorted(scored, key=lambda s: s['result']['priority'] if 'result' in s else -1, reverse=True)
+    return {'leads': ranked, 'scored': sum('result' in s for s in scored), 'failed': sum('error' in s for s in scored)}
 
 DIST = Path(__file__).parent.parent / 'frontend' / 'dist'
 if DIST.exists():

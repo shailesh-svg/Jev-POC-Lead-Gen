@@ -13,42 +13,22 @@ import {
   X,
 } from "lucide-react";
 import { api } from "./api";
+import { LeadQueue, LeadResultDetail } from "./LeadResult";
 import { Modal } from "./Modal";
-import { RequestDetails, type ApiRequest } from "./PromptDetails";
+import { splitLeads } from "./leadFormat";
 import { rowKey, stripKeys, withKeys, type Keyed } from "./rows";
 import { useModalKeys } from "./useModalKeys";
+import type {
+  Criterion,
+  LeadBatch,
+  LeadProfile,
+  LeadResult,
+  RoutingOption,
+} from "./leadTypes";
 
 const MAX_LEAD_CHARACTERS = 20000;
 const MIN_LEAD_CHARACTERS = 20;
-
-type Criterion = { name: string; description: string; weight: number };
-type RoutingOption = { name: string; description: string };
-type LeadProfile = {
-  id: string;
-  name: string;
-  icp_description: string;
-  criteria: Criterion[];
-  industry_levels: string[];
-  maturity_levels: string[];
-  intent_levels: string[];
-  routing: RoutingOption[];
-};
-type LevelResult = { level: string; score: number; confidence: number };
-type LeadResult = {
-  requests?: ApiRequest[];
-  icp_fit: number;
-  criteria: (Criterion & { fit: number })[];
-  industry_fit: LevelResult;
-  company_maturity: LevelResult;
-  purchase_intent: LevelResult;
-  priority: number;
-  tier: "Hot" | "Warm" | "Cold";
-  route: string;
-  route_description: string;
-  route_confidence: number;
-  needs_review: boolean;
-  profile_name: string;
-};
+const MAX_BATCH = 10;
 
 type LeadDraft = Omit<LeadProfile, "criteria" | "routing"> & {
   criteria: Keyed<Criterion>[];
@@ -155,6 +135,9 @@ export function LeadGeneration({
     [selected, setSelected] = useState(""),
     [text, setText] = useState(""),
     [result, setResult] = useState<LeadResult | null>(null),
+    [batch, setBatch] = useState<LeadBatch | null>(null),
+    [batchTexts, setBatchTexts] = useState<string[]>([]),
+    [openLead, setOpenLead] = useState<number | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(""),
@@ -183,27 +166,43 @@ export function LeadGeneration({
   function invalidate() {
     generation.current++;
     setResult(null);
+    setBatch(null);
+    setOpenLead(null);
     setError("");
     setNotice("");
   }
+  const leads = splitLeads(text);
   const blocked = !configured
     ? ""
     : !profile
       ? "Choose or create an ICP profile before scoring."
-      : text.trim().length < MIN_LEAD_CHARACTERS
-        ? `Paste at least ${MIN_LEAD_CHARACTERS} characters of lead content.`
-        : "";
+      : !leads.length || leads.some((lead) => lead.length < MIN_LEAD_CHARACTERS)
+        ? `Every lead needs at least ${MIN_LEAD_CHARACTERS} characters.`
+        : leads.length > MAX_BATCH
+          ? `Score at most ${MAX_BATCH} leads at a time. This box holds ${leads.length}.`
+          : "";
   async function score() {
-    if (!profile || text.trim().length < MIN_LEAD_CHARACTERS) return;
+    if (!profile || blocked) return;
     invalidate();
     const gen = generation.current;
     setBusy("score");
     try {
-      const r = await api("/lead-scores", {
+      const single = leads.length === 1;
+      const r = await api(single ? "/lead-scores" : "/lead-scores/batch", {
         method: "POST",
-        body: JSON.stringify({ lead_profile_id: profile.id, text }),
+        body: JSON.stringify(
+          single
+            ? { lead_profile_id: profile.id, text: leads[0] }
+            : { lead_profile_id: profile.id, leads },
+        ),
       });
-      if (gen === generation.current) setResult(r);
+      if (gen !== generation.current) return;
+      if (single) {
+        setResult(r);
+      } else {
+        setBatch(r);
+        setBatchTexts(leads);
+      }
     } catch (e) {
       if (gen === generation.current) setError((e as Error).message);
     } finally {
@@ -335,10 +334,12 @@ export function LeadGeneration({
             <div className="upload-help">
               <Target size={18} />
               <div>
-                <b>One lead. A clear next step.</b>
+                <b>One lead, or a queue of them.</b>
                 <p>
                   Paste a company profile, an executive bio, or an inbound
-                  message. Your ICP profile decides how it is scored and routed.
+                  message. Separate several leads with a line of{" "}
+                  <code>---</code> to score up to {MAX_BATCH} at once and get
+                  them back ranked.
                 </p>
               </div>
             </div>
@@ -355,11 +356,16 @@ export function LeadGeneration({
                 {busy === "score" ? (
                   <>
                     <LoaderCircle size={17} className="spin" />
-                    Scoring lead…
+                    {leads.length > 1
+                      ? `Scoring ${leads.length} leads…`
+                      : "Scoring lead…"}
                   </>
                 ) : (
                   <>
-                    Score lead <ArrowRight size={17} />
+                    {leads.length > 1
+                      ? `Score ${leads.length} leads`
+                      : "Score lead"}{" "}
+                    <ArrowRight size={17} />
                   </>
                 )}
               </button>
@@ -385,94 +391,21 @@ export function LeadGeneration({
               <h2>Lead insights</h2>
             </div>
             <span className="small-pill">
-              {result ? "Complete" : "Overview"}
+              {batch
+                ? `${batch.leads.length} leads`
+                : result
+                  ? "Complete"
+                  : "Overview"}
             </span>
           </div>
-          {result ? (
+          {batch ? (
             <div className="results-body">
-              <RequestDetails requests={result.requests} />
-              {result.needs_review && (
-                <div className="alert warning" role="status">
-                  <span>
-                    <TriangleAlert size={14} /> Low model confidence on intent
-                    or routing. Review this lead before acting on it.
-                  </span>
-                </div>
-              )}
-              <div className="score-top">
-                <div
-                  className="score-ring"
-                  style={
-                    { "--score": result.priority + "%" } as React.CSSProperties
-                  }
-                >
-                  <div>
-                    <strong>
-                      {result.priority}
-                      <small>/100</small>
-                    </strong>
-                    <span>Priority</span>
-                  </div>
-                </div>
-                <div>
-                  <span className={"badge tier-" + result.tier.toLowerCase()}>
-                    {result.tier} lead
-                  </span>
-                  <h3>{result.profile_name}</h3>
-                  <p>
-                    ICP fit {result.icp_fit}% · Route:{" "}
-                    {result.route.replace(/_/g, " ")}
-                  </p>
-                </div>
-              </div>
-              <div className="level-grid">
-                {(
-                  [
-                    ["Industry fit", result.industry_fit],
-                    ["Company maturity", result.company_maturity],
-                    ["Purchase intent", result.purchase_intent],
-                  ] as [string, LevelResult][]
-                ).map(([label, lvl]) => (
-                  <div className="level-card" key={label}>
-                    <span className="small-pill">{label}</span>
-                    <b>{lvl.level}</b>
-                    <div className="score-caption">
-                      <span>Model confidence</span>
-                      <b>{Math.round(lvl.confidence * 100)}%</b>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="route-card">
-                <div>
-                  <span className="small-pill">Routing decision</span>
-                  <b>{result.route.replace(/_/g, " ")}</b>
-                  <p>{result.route_description}</p>
-                </div>
-                <div className="score-caption">
-                  <span>Confidence</span>
-                  <b>{Math.round(result.route_confidence * 100)}%</b>
-                </div>
-              </div>
-              <div className="criteria-heading">
-                ICP CRITERIA BREAKDOWN <span>Weight</span>
-              </div>
-              {result.criteria.map((c, i) => (
-                <div className="criterion-result" key={i}>
-                  <div>
-                    <strong>{c.name}</strong>
-                    <span>{c.weight}×</span>
-                  </div>
-                  <p>{c.description}</p>
-                  <div className="bar">
-                    <i style={{ width: c.fit + "%" }} />
-                  </div>
-                  <div className="score-caption">
-                    <span>Fit</span>
-                    <b>{c.fit}%</b>
-                  </div>
-                </div>
-              ))}
+              <LeadQueue
+                batch={batch}
+                texts={batchTexts}
+                openIndex={openLead}
+                onOpen={setOpenLead}
+              />
               <button
                 className="secondary reset-lead"
                 onClick={() => {
@@ -480,13 +413,18 @@ export function LeadGeneration({
                   invalidate();
                 }}
               >
-                Score another lead <ArrowRight size={15} />
+                Score another queue <ArrowRight size={15} />
               </button>
-              <p className="method-note">
-                Priority combines ICP fit (40%), industry fit (20%), company
-                maturity (15%), and purchase intent (25%) into one number you
-                control. Check the source text before acting on a lead.
-              </p>
+            </div>
+          ) : result ? (
+            <div className="results-body">
+              <LeadResultDetail
+                result={result}
+                onReset={() => {
+                  setText("");
+                  invalidate();
+                }}
+              />
             </div>
           ) : (
             <div className="empty-results">
@@ -509,7 +447,7 @@ export function LeadGeneration({
               </h3>
               <p>
                 {busy === "score"
-                  ? "TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route. This can take up to 90 seconds."
+                  ? `TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route${leads.length > 1 ? `, for ${leads.length} leads` : ""}. This can take up to 90 seconds per lead.`
                   : "Choose an ICP and paste lead content. Your priority score and route will appear here."}
               </p>
               <div className="result-features">
@@ -521,6 +459,9 @@ export function LeadGeneration({
                 </span>
                 <span>
                   <Check size={14} /> Routing decision
+                </span>
+                <span>
+                  <Check size={14} /> Ranked queue + CSV
                 </span>
               </div>
             </div>

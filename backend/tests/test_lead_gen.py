@@ -103,3 +103,82 @@ def test_lead_score_rejects_unknown_route(client, lead_profile, provider):
     client.put('/api/settings', json={'api_key': 'test-key'})
     r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'Some inbound message.'})
     assert r.status_code == 502
+
+@pytest.mark.parametrize('answer', [
+    {'criterion_0': {'type': 'noul', 'noul': 1.4}},
+    {'criterion_0': {'type': 'noul', 'noul': float('nan')}},
+    {'industry_fit': {'type': 'score', 'score': 9, 'confidence': .9, 'probabilities': {}, 'legend': {}}},
+    {'purchase_intent': {'type': 'score', 'score': 1, 'confidence': 1.2, 'probabilities': {}, 'legend': {}}},
+    {'route': {'type': 'choice', 'choice': 'nurture_sequence', 'confidence': -0.1, 'probabilities': {}}},
+])
+def test_out_of_range_answers_fail_safely(client, lead_profile, provider, answer):
+    seen, make = provider
+    make({**answers(), **answer})
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A VP Engineering asked about our platform.'})
+    assert r.status_code == 502
+    assert 'incomplete result' in r.json()['detail']
+
+def test_missing_answer_fails_safely(client, lead_profile, provider):
+    seen, make = provider
+    body = answers()
+    del body['company_maturity']
+    make(body)
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A VP Engineering asked about our platform.'})
+    assert r.status_code == 502
+
+def test_batch_ranks_leads_by_priority(client, lead_profile, monkeypatch):
+    bodies = {
+        'hot lead': answers(criterion_values=(1, 1), intent=(3, .9)),
+        'cold lead': answers(criterion_values=(.05, .05), industry=(0, .9), maturity=(0, .9), intent=(0, .9), route=('disqualify', .9)),
+    }
+    def handle(request):
+        payload = json.loads(request.content)
+        which = 'hot lead' if 'hot lead' in payload['state']['lead_content'] else 'cold lead'
+        return httpx2.Response(200, json={'model': 'jev-test', 'usage': {}, 'answers': bodies[which]})
+    monkeypatch.setattr(lead_gen, 'AsyncTypeSafeClient', lambda **kw: AsyncTypeSafeClient(**kw, transport=httpx2.MockTransport(handle)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': [
+        'This is a cold lead with no stated need at all.',
+        'This is a hot lead ready to buy this quarter.',
+    ]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body['scored'] == 2 and body['failed'] == 0
+    assert [lead['index'] for lead in body['leads']] == [1, 0]
+    assert body['leads'][0]['result']['tier'] == 'Hot'
+    assert body['leads'][0]['result']['priority'] > body['leads'][1]['result']['priority']
+
+def test_batch_reports_per_lead_failures(client, lead_profile, monkeypatch):
+    def handle(request):
+        payload = json.loads(request.content)
+        if 'break' in payload['state']['lead_content']:
+            return httpx2.Response(500, json={'error': 'private provider detail'})
+        return httpx2.Response(200, json={'model': 'jev-test', 'usage': {}, 'answers': answers()})
+    monkeypatch.setattr(lead_gen, 'AsyncTypeSafeClient', lambda **kw: AsyncTypeSafeClient(**kw, transport=httpx2.MockTransport(handle)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': [
+        'A VP Engineering asked about our platform today.',
+        'This lead will break the provider on purpose.',
+    ]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body['scored'] == 1 and body['failed'] == 1
+    failed = next(lead for lead in body['leads'] if 'error' in lead)
+    assert failed['index'] == 1
+    assert 'private provider detail' not in r.text
+    assert body['leads'][0]['index'] == 0
+
+def test_batch_limits_and_requirements(client, lead_profile):
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['x' * 30]}).status_code == 409
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': 'missing', 'leads': ['x' * 30]}).status_code == 404
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': []}).status_code == 422
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['x' * 30] * 11}).status_code == 422
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['too short']}).status_code == 422
