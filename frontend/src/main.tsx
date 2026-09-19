@@ -25,6 +25,7 @@ import "./style.css";
 import { api } from "./api";
 import { PdfClassification } from "./PdfClassification";
 import { LeadGeneration } from "./LeadGeneration";
+import { useModalKeys } from "./useModalKeys";
 import {
   PromptSettings,
   RequestDetails,
@@ -243,37 +244,10 @@ function App() {
       setBusy("");
     }
   }
-  useEffect(() => {
-    if (!draft && !deleteId) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const handle = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) {
-        setDraft(null);
-        setDeleteId("");
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const elements = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[role="dialog"] button:not(:disabled), [role="dialog"] input:not(:disabled), [role="dialog"] textarea:not(:disabled), [role="dialog"] select:not(:disabled)',
-        ),
-      );
-      const first = elements[0],
-        last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-    document.addEventListener("keydown", handle);
-    return () => {
-      document.removeEventListener("keydown", handle);
-      previous?.focus();
-    };
-  }, [!!draft, !!deleteId, busy]);
+  useModalKeys(!!draft || !!deleteId, !!busy, () => {
+    setDraft(null);
+    setDeleteId("");
+  });
   function navigate(p: string) {
     setPage(p);
     setError("");

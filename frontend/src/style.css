@@ -274,10 +274,21 @@ h1 {
   padding: 7px 10px;
   white-space: nowrap;
 }
-.badge.green {
+.badge.green,
+.badge.tier-hot {
   color: #397658;
   background: #eaf3eb;
   border-color: #d6e8d7;
+}
+.badge.tier-warm {
+  color: #8a5a15;
+  background: #fbf1e0;
+  border-color: #f0dfc0;
+}
+.badge.tier-cold {
+  color: #4a6473;
+  background: #edf2f5;
+  border-color: #d8e3e9;
 }
 .profile-selector {
   display: flex;
@@ -611,6 +622,21 @@ h1 {
 .success {
   background: #eaf4eb;
   color: #386748;
+}
+.warning {
+  background: #fdf4e4;
+  color: #8a5a15;
+  border: 1px solid #f0dfc0;
+}
+.char-count {
+  margin: -9px 0 15px;
+}
+.blocked-hint {
+  font-size: 9px;
+  color: #8b997d;
+  margin: 11px 0 0;
+  text-align: center;
+  line-height: 1.6;
 }
 .file-row {
   display: flex;

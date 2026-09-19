@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import { api } from "./api";
 import { RequestDetails, type ApiRequest } from "./PromptDetails";
+import { useModalKeys } from "./useModalKeys";
+
+const MAX_LEAD_CHARACTERS = 20000;
+const MIN_LEAD_CHARACTERS = 20;
 
 type Criterion = { name: string; description: string; weight: number };
 type RoutingOption = { name: string; description: string };
@@ -127,6 +131,10 @@ export function LeadGeneration({
     [deleteId, setDeleteId] = useState("");
   const generation = useRef(0);
   const profile = profiles.find((p) => p.id === selected);
+  useModalKeys(!!draft || !!deleteId, !!busy, () => {
+    setDraft(null);
+    setDeleteId("");
+  });
   async function refresh() {
     const ps = await api("/lead-profiles");
     setProfiles(ps);
@@ -144,8 +152,15 @@ export function LeadGeneration({
     setError("");
     setNotice("");
   }
+  const blocked = !configured
+    ? ""
+    : !profile
+      ? "Choose or create an ICP profile before scoring."
+      : text.trim().length < MIN_LEAD_CHARACTERS
+        ? `Paste at least ${MIN_LEAD_CHARACTERS} characters of lead content.`
+        : "";
   async function score() {
-    if (!profile || text.trim().length < 20) return;
+    if (!profile || text.trim().length < MIN_LEAD_CHARACTERS) return;
     invalidate();
     const gen = generation.current;
     setBusy("score");
@@ -259,12 +274,19 @@ export function LeadGeneration({
               aria-label="Lead content"
               placeholder="Paste a company profile, executive bio, or inbound message…"
               value={text}
+              maxLength={MAX_LEAD_CHARACTERS}
               disabled={!!busy}
               onChange={(e) => {
                 setText(e.target.value);
                 invalidate();
               }}
             />
+            <div className="preview-label char-count">
+              <span>
+                {text.length.toLocaleString()} / {MAX_LEAD_CHARACTERS.toLocaleString()} characters
+              </span>
+              {text.length >= MAX_LEAD_CHARACTERS && <span>Character limit reached</span>}
+            </div>
             <div className="upload-help">
               <Target size={18} />
               <div>
@@ -282,7 +304,7 @@ export function LeadGeneration({
               </p>
               <button
                 className="primary wide"
-                disabled={!!busy || !profile || text.trim().length < 20 || !configured}
+                disabled={!!busy || !!blocked || !configured}
                 onClick={score}
               >
                 {busy === "score" ? (
@@ -296,10 +318,16 @@ export function LeadGeneration({
                   </>
                 )}
               </button>
-              {!configured && (
+              {!configured ? (
                 <button className="setup-link" onClick={openSettings}>
                   Connect your TypeSafe API key to score leads <ArrowUpRight size={12} />
                 </button>
+              ) : (
+                blocked && (
+                  <p className="blocked-hint" role="status">
+                    {blocked}
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -316,7 +344,7 @@ export function LeadGeneration({
             <div className="results-body">
               <RequestDetails requests={result.requests} />
               {result.needs_review && (
-                <div className="alert error" role="alert">
+                <div className="alert warning" role="status">
                   <span>
                     <TriangleAlert size={14} /> Low model confidence on intent or routing.
                     Review this lead before acting on it.
@@ -334,11 +362,7 @@ export function LeadGeneration({
                   </div>
                 </div>
                 <div>
-                  <span
-                    className={
-                      "badge " + (result.tier === "Hot" ? "green" : "")
-                    }
-                  >
+                  <span className={"badge tier-" + result.tier.toLowerCase()}>
                     {result.tier} lead
                   </span>
                   <h3>{result.profile_name}</h3>
