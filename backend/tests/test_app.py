@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from io import BytesIO
 import pytest
 import httpx2
@@ -7,7 +8,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DictionaryObject, NameObject, DecodedStreamObject
 from typesafe_sdk import AsyncTypeSafeClient
 from backend.main import app
-from backend import storage, evaluation
+from backend import main, storage, evaluation
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -91,6 +92,22 @@ def test_provider_errors_are_safe(client,profile,monkeypatch):
     r=client.post('/api/reviews',json={'profile_id':id,'text':'Candidate has Python experience.','kind':'pdf'})
     assert r.status_code == 502
     assert 'private provider detail' not in r.text
+
+def test_connection_is_closed_after_use(client):
+    with storage.connect() as db:
+        db.execute('SELECT 1')
+    with pytest.raises(sqlite3.ProgrammingError):
+        db.execute('SELECT 1')
+
+def test_missing_records_return_none(client):
+    assert storage.get_profile('missing') is None
+    assert storage.get_lead_profile('missing') is None
+    assert storage.delete_profile('missing') is False
+
+def test_templates_are_read_from_disk_once(client):
+    first = client.get('/api/profile-templates').json()
+    assert first and first == client.get('/api/profile-templates').json()
+    assert main.templates('profile_templates.json') is main.templates('profile_templates.json')
 
 def test_cross_origin_write_rejected(client,profile):
     assert client.post('/api/profiles',json=profile,headers={'origin':'https://untrusted.example'}).status_code == 403

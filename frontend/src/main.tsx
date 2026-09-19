@@ -143,12 +143,7 @@ function App() {
   const generation = useRef(0);
   const profile = profiles.find((p) => p.id === selected);
   async function refresh() {
-    const [ps, s, ts] = await Promise.all([
-      api("/profiles"),
-      api("/settings"),
-      api("/profile-templates"),
-    ]);
-    setMoreTemplates(ts);
+    const [ps, s] = await Promise.all([api("/profiles"), api("/settings")]);
     setProfiles(ps);
     setConfigured(s.configured);
     setEnvKey(s.environment_key);
@@ -157,7 +152,10 @@ function App() {
     );
   }
   useEffect(() => {
-    refresh().catch((e) => setError(e.message));
+    // Templates ship with the server and never change, so they load once.
+    Promise.all([refresh(), api("/profile-templates").then(setMoreTemplates)]).catch(
+      (e) => setError(e.message),
+    );
   }, []);
   function invalidate() {
     generation.current++;
@@ -185,7 +183,7 @@ function App() {
       const extracted = await api("/extract", { method: "POST", body: data });
       if (gen === generation.current) setUpload(extracted);
     } catch (e) {
-      setError((e as Error).message);
+      if (gen === generation.current) setError((e as Error).message);
     } finally {
       setBusy("");
     }
@@ -206,7 +204,7 @@ function App() {
       });
       if (gen === generation.current) setResult(r);
     } catch (e) {
-      setError((e as Error).message);
+      if (gen === generation.current) setError((e as Error).message);
     } finally {
       setBusy("");
     }

@@ -128,13 +128,15 @@ export function LeadGeneration({
   const generation = useRef(0);
   const profile = profiles.find((p) => p.id === selected);
   async function refresh() {
-    const [ps, ts] = await Promise.all([api("/lead-profiles"), api("/lead-profile-templates")]);
+    const ps = await api("/lead-profiles");
     setProfiles(ps);
-    setMoreTemplates(ts);
     setSelected((old) => (ps.some((p: LeadProfile) => p.id === old) ? old : ps[0]?.id || ""));
   }
   useEffect(() => {
-    refresh().catch((e) => setError(e.message));
+    // Templates ship with the server and never change, so they load once.
+    Promise.all([refresh(), api("/lead-profile-templates").then(setMoreTemplates)]).catch((e) =>
+      setError(e.message),
+    );
   }, []);
   function invalidate() {
     generation.current++;
@@ -154,7 +156,7 @@ export function LeadGeneration({
       });
       if (gen === generation.current) setResult(r);
     } catch (e) {
-      setError((e as Error).message);
+      if (gen === generation.current) setError((e as Error).message);
     } finally {
       setBusy("");
     }

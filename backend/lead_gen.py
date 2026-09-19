@@ -4,11 +4,13 @@ Combines four question types in one system_one call (composite scoring +
 intent routing): Noul per ICP criterion, Score for industry fit, company
 maturity, and purchase intent, and Choice for the routing decision.
 """
-import math
 from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score, RetryPolicy
 from .prompts import LEAD_FIT, LEAD_INDUSTRY, LEAD_MATURITY, LEAD_INTENT, LEAD_ROUTE, request_trace
+from .validation import bounded
 
 WEIGHTS = {'icp_fit': 0.40, 'industry_fit': 0.20, 'company_maturity': 0.15, 'purchase_intent': 0.25}
+REVIEW_CONFIDENCE = 0.5
+HOT, WARM = 70, 40
 
 def _level_ratio(score, levels):
     return score / (len(levels) - 1) if len(levels) > 1 else 0.0
@@ -17,10 +19,11 @@ def _level_label(score, levels):
     index = max(0, min(len(levels) - 1, round(score)))
     return levels[index]
 
-def _validate(value, low=0, high=1):
-    if not math.isfinite(value) or not low <= value <= high:
-        raise ValueError('Invalid value returned by provider')
-    return value
+def _describe(answer, levels):
+    """Validate one Score answer and render it for the client."""
+    score = bounded(answer.score, 0, len(levels) - 1)
+    confidence = bounded(answer.confidence)
+    return {'level': _level_label(score, levels), 'score': round(score, 2), 'confidence': round(confidence, 2)}, score, confidence
 
 async def score_lead(profile, text, key):
     questions = {
@@ -40,46 +43,39 @@ async def score_lead(profile, text, key):
 
     criteria_results = []
     for i, c in enumerate(profile['criteria']):
-        value = _validate(float(response.nouls[f'criterion_{i}'].noul))
+        value = bounded(response.nouls[f'criterion_{i}'].noul)
         criteria_results.append({**c, 'fit': round(value * 100, 1)})
     icp_fit = sum(r['fit'] * r['weight'] for r in criteria_results) / sum(r['weight'] for r in criteria_results)
 
-    industry = response.scores['industry_fit']
-    maturity = response.scores['company_maturity']
-    intent = response.scores['purchase_intent']
-    route = response.choices['route']
+    industry, industry_score, _ = _describe(response.scores['industry_fit'], profile['industry_levels'])
+    maturity, maturity_score, _ = _describe(response.scores['company_maturity'], profile['maturity_levels'])
+    intent, intent_score, intent_confidence = _describe(response.scores['purchase_intent'], profile['intent_levels'])
 
-    routing_ids = {r['name'] for r in profile['routing']}
-    if route.choice not in routing_ids:
+    route = response.choices['route']
+    destination = next((r for r in profile['routing'] if r['name'] == route.choice), None)
+    if not destination:
         raise ValueError('Unknown routing destination')
-    for s, levels in ((industry, profile['industry_levels']), (maturity, profile['maturity_levels']), (intent, profile['intent_levels'])):
-        _validate(float(s.score), 0, len(levels) - 1)
-        _validate(float(s.confidence))
-    _validate(float(route.confidence))
+    route_confidence = bounded(route.confidence)
 
     priority = round(100 * (
         WEIGHTS['icp_fit'] * icp_fit / 100
-        + WEIGHTS['industry_fit'] * _level_ratio(industry.score, profile['industry_levels'])
-        + WEIGHTS['company_maturity'] * _level_ratio(maturity.score, profile['maturity_levels'])
-        + WEIGHTS['purchase_intent'] * _level_ratio(intent.score, profile['intent_levels'])
+        + WEIGHTS['industry_fit'] * _level_ratio(industry_score, profile['industry_levels'])
+        + WEIGHTS['company_maturity'] * _level_ratio(maturity_score, profile['maturity_levels'])
+        + WEIGHTS['purchase_intent'] * _level_ratio(intent_score, profile['intent_levels'])
     ))
-    needs_review = min(float(intent.confidence), float(route.confidence)) < 0.5
-
-    def describe(s, levels):
-        return {'level': _level_label(s.score, levels), 'score': round(float(s.score), 2), 'confidence': round(float(s.confidence), 2)}
 
     return {
         'icp_fit': round(icp_fit, 1),
         'criteria': criteria_results,
-        'industry_fit': describe(industry, profile['industry_levels']),
-        'company_maturity': describe(maturity, profile['maturity_levels']),
-        'purchase_intent': describe(intent, profile['intent_levels']),
+        'industry_fit': industry,
+        'company_maturity': maturity,
+        'purchase_intent': intent,
         'priority': priority,
-        'tier': 'Hot' if priority >= 70 else 'Warm' if priority >= 40 else 'Cold',
+        'tier': 'Hot' if priority >= HOT else 'Warm' if priority >= WARM else 'Cold',
         'route': route.choice,
-        'route_description': next(r['description'] for r in profile['routing'] if r['name'] == route.choice),
-        'route_confidence': round(float(route.confidence), 2),
-        'needs_review': needs_review,
+        'route_description': destination['description'],
+        'route_confidence': round(route_confidence, 2),
+        'needs_review': min(intent_confidence, route_confidence) < REVIEW_CONFIDENCE,
         'profile_name': profile['name'],
         'requests': [request_trace(response)],
     }

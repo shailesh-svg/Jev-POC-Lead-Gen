@@ -1,7 +1,7 @@
 """Classify a PDF's extracted text without generating or extracting field values."""
-import math
 from typesafe_sdk import AsyncTypeSafeClient, Choice, RetryPolicy
 from .prompts import CLASSIFY, request_trace
+from .validation import bounded
 
 CATEGORIES = {
     'invoice': {'label': 'Invoice', 'description': 'A bill requesting payment for goods or services, with amounts owed. Includes tax invoices and pro forma invoices. Excludes receipts confirming payment and purchase orders.'},
@@ -26,17 +26,16 @@ CATEGORIES = {
     'other': {'label': 'Other / mixed', 'description': 'None of these categories fits, or the PDF contains several distinct document types with no clear main type.'},
 }
 
+OPTIONS = {id: item['description'] for id, item in CATEGORIES.items()}
+
 async def classify(text, key):
-    options = {id: item['description'] for id, item in CATEGORIES.items()}
     async with AsyncTypeSafeClient(api_key=key, timeout=60, retry=RetryPolicy(max_retries=1)) as client:
-        response = await client.system_one(state={'document': text}, questions={'document_type': Choice(instructions=CLASSIFY, criteria=options)})
+        response = await client.system_one(state={'document': text}, questions={'document_type': Choice(instructions=CLASSIFY, criteria=OPTIONS)})
     answer = response.choices['document_type']
     if answer.choice not in CATEGORIES:
         raise ValueError('Unknown category')
-    confidence = float(answer.confidence)
-    probabilities = {id: float(answer.probabilities[id]) for id in CATEGORIES}
-    if any(not math.isfinite(v) or not 0 <= v <= 1 for v in [confidence, *probabilities.values()]):
-        raise ValueError('Invalid probability')
+    confidence = bounded(answer.confidence, message='Invalid probability')
+    probabilities = {id: bounded(answer.probabilities[id], message='Invalid probability') for id in CATEGORIES}
     ranked = sorted(probabilities.values(), reverse=True)
     return {
         'category': answer.choice,
