@@ -9,7 +9,11 @@ const FOCUSABLE =
  * is in flight. The close callback is held in a ref so re-renders do not
  * re-run the effect and steal focus.
  */
-export function useModalKeys(open: boolean, locked: boolean, close: () => void) {
+export function useModalKeys(
+  open: boolean,
+  locked: boolean,
+  close: () => void,
+) {
   const closeRef = useRef(close);
   closeRef.current = close;
   useEffect(() => {
@@ -21,7 +25,9 @@ export function useModalKeys(open: boolean, locked: boolean, close: () => void) 
         return;
       }
       if (event.key !== "Tab") return;
-      const elements = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE));
+      const elements = Array.from(
+        document.querySelectorAll<HTMLElement>(FOCUSABLE),
+      );
       const first = elements[0],
         last = elements[elements.length - 1];
       if (event.shiftKey && document.activeElement === first) {

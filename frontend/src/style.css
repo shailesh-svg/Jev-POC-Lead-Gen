@@ -631,6 +631,11 @@ h1 {
 .char-count {
   margin: -9px 0 15px;
 }
+.reset-lead {
+  width: 100%;
+  justify-content: center;
+  margin-top: 20px;
+}
 .blocked-hint {
   font-size: 9px;
   color: #8b997d;

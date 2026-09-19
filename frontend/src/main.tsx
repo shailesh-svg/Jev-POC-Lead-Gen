@@ -25,6 +25,8 @@ import "./style.css";
 import { api } from "./api";
 import { PdfClassification } from "./PdfClassification";
 import { LeadGeneration } from "./LeadGeneration";
+import { Modal } from "./Modal";
+import { rowKey, stripKeys, withKeys, type Keyed } from "./rows";
 import { useModalKeys } from "./useModalKeys";
 import {
   PromptSettings,
@@ -49,6 +51,13 @@ type Result = {
   model: string;
   criteria: (Criterion & { score: number; status: string })[];
 };
+type ProfileDraft = Omit<Profile, "criteria"> & {
+  criteria: Keyed<Criterion>[];
+};
+const toDraft = (profile: Profile): ProfileDraft => ({
+  ...structuredClone(profile),
+  criteria: withKeys(profile.criteria),
+});
 const blank = (): Profile => ({
   id: "",
   name: "",
@@ -130,7 +139,7 @@ function App() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(""),
-    [draft, setDraft] = useState<Profile | null>(null),
+    [draft, setDraft] = useState<ProfileDraft | null>(null),
     [result, setResult] = useState<Result | null>(null),
     [upload, setUpload] = useState<{
       filename: string;
@@ -154,9 +163,10 @@ function App() {
   }
   useEffect(() => {
     // Templates ship with the server and never change, so they load once.
-    Promise.all([refresh(), api("/profile-templates").then(setMoreTemplates)]).catch(
-      (e) => setError(e.message),
-    );
+    Promise.all([
+      refresh(),
+      api("/profile-templates").then(setMoreTemplates),
+    ]).catch((e) => setError(e.message));
   }, []);
   function invalidate() {
     generation.current++;
@@ -218,7 +228,7 @@ function App() {
     try {
       const p = await api("/profiles" + (draft.id ? "/" + draft.id : ""), {
         method: draft.id ? "PUT" : "POST",
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, criteria: stripKeys(draft.criteria) }),
       });
       await refresh();
       setSelected(p.id);
@@ -281,6 +291,7 @@ function App() {
             <button
               key={id as string}
               className={page === id ? "active" : ""}
+              aria-current={page === id ? "page" : undefined}
               onClick={() => navigate(id as string)}
             >
               <Icon size={18} />
@@ -377,13 +388,16 @@ function App() {
                 <Sparkles size={13} /> Powered by TypeSafe
               </span>
             ) : page === "profiles" ? (
-              <button className="primary" onClick={() => setDraft(blank())}>
+              <button
+                className="primary"
+                onClick={() => setDraft(toDraft(blank()))}
+              >
                 <Plus size={16} />
                 New profile
               </button>
             ) : null}
           </div>
-          {error && (
+          {error && !draft && !deleteId && (
             <div className="alert error" role="alert">
               {error}
               <button aria-label="Dismiss error" onClick={() => setError("")}>
@@ -443,9 +457,7 @@ function App() {
                 <button
                   className="text-button"
                   onClick={() =>
-                    profile
-                      ? setDraft(structuredClone(profile))
-                      : navigate("profiles")
+                    profile ? setDraft(toDraft(profile)) : navigate("profiles")
                   }
                 >
                   {profile ? "Edit profile" : "Create profile"}
@@ -727,13 +739,13 @@ function App() {
                 </div>
                 <button
                   className="secondary"
-                  onClick={() => setDraft(structuredClone(templates.Resume))}
+                  onClick={() => setDraft(toDraft(templates.Resume))}
                 >
                   <BriefcaseBusiness size={16} /> Resume review
                 </button>
                 <button
                   className="secondary"
-                  onClick={() => setDraft(structuredClone(templates.Document))}
+                  onClick={() => setDraft(toDraft(templates.Document))}
                 >
                   <FileText size={16} /> Document review
                 </button>
@@ -744,8 +756,7 @@ function App() {
                   value=""
                   onChange={(e) => {
                     const template = moreTemplates[Number(e.target.value)];
-                    if (template)
-                      setDraft({ ...structuredClone(template), id: "" });
+                    if (template) setDraft({ ...toDraft(template), id: "" });
                   }}
                 >
                   <option value="" disabled>
@@ -781,7 +792,7 @@ function App() {
                       </button>
                       <button
                         aria-label={"Edit " + p.name}
-                        onClick={() => setDraft(structuredClone(p))}
+                        onClick={() => setDraft(toDraft(p))}
                       >
                         <Pencil size={16} />
                       </button>
@@ -908,7 +919,8 @@ function App() {
         </main>
         <footer className="app-footer">
           <span>
-            align. <span>Bring clarity to every review.</span>
+            align workbench.{" "}
+            <span>Clarity for every document and every lead.</span>
           </span>
           <span>
             Made with TypeSafe AI <span className="footer-dot">✦</span>
@@ -916,238 +928,240 @@ function App() {
         </footer>
       </div>
       {draft && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="editor-title"
-          >
-            <form onSubmit={saveProfile}>
-              <header>
-                <div>
-                  <span className="eyebrow">REVIEW CONFIGURATION</span>
-                  <h2 id="editor-title">
-                    {draft.id ? "Edit profile" : "Create a profile"}
-                  </h2>
+        <Modal
+          labelledBy="editor-title"
+          locked={!!busy}
+          onClose={() => setDraft(null)}
+        >
+          <form onSubmit={saveProfile}>
+            <header>
+              <div>
+                <span className="eyebrow">REVIEW CONFIGURATION</span>
+                <h2 id="editor-title">
+                  {draft.id ? "Edit profile" : "Create a profile"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Close editor"
+                disabled={!!busy}
+                onClick={() => setDraft(null)}
+              >
+                <X />
+              </button>
+            </header>
+            <div className="modal-body">
+              {error && (
+                <div className="alert error" role="alert">
+                  {error}
                 </div>
-                <button
-                  type="button"
-                  aria-label="Close editor"
-                  disabled={!!busy}
-                  onClick={() => setDraft(null)}
-                >
-                  <X />
-                </button>
-              </header>
-              <div className="modal-body">
-                {error && (
-                  <div className="alert error" role="alert">
-                    {error}
-                  </div>
-                )}
-                <div className="form-row">
-                  <label>
-                    Profile name
-                    <input
-                      autoFocus
-                      required
-                      maxLength={120}
-                      value={draft.name}
-                      onChange={(e) =>
-                        setDraft({ ...draft, name: e.target.value })
-                      }
-                      placeholder="e.g. Senior Product Designer"
-                    />
-                  </label>
-                  <label>
-                    Category
-                    <select
-                      value={draft.category}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          category: e.target.value as Profile["category"],
-                        })
-                      }
-                    >
-                      {["Resume", "Document", "Image", "Custom"].map((x) => (
-                        <option key={x}>{x}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+              )}
+              <div className="form-row">
                 <label>
-                  Input label
+                  Profile name
                   <input
+                    autoFocus
                     required
-                    maxLength={60}
-                    value={draft.input_label}
+                    maxLength={120}
+                    value={draft.name}
                     onChange={(e) =>
-                      setDraft({ ...draft, input_label: e.target.value })
+                      setDraft({ ...draft, name: e.target.value })
                     }
-                    placeholder="Resume, document, proposal…"
+                    placeholder="e.g. Senior Product Designer"
                   />
                 </label>
                 <label>
-                  {draft.category === "Resume"
-                    ? "Job description"
-                    : "Profile description"}
-                  <textarea
-                    required
-                    maxLength={20000}
-                    rows={5}
-                    value={draft.description}
+                  Category
+                  <select
+                    value={draft.category}
                     onChange={(e) =>
-                      setDraft({ ...draft, description: e.target.value })
+                      setDraft({
+                        ...draft,
+                        category: e.target.value as Profile["category"],
+                      })
                     }
-                    placeholder="Describe the purpose and requirements for this review."
-                  />
+                  >
+                    {["Resume", "Document", "Image", "Custom"].map((x) => (
+                      <option key={x}>{x}</option>
+                    ))}
+                  </select>
                 </label>
-                <p className="field-hint">
-                  Accepted input: PDF with selectable text. Image extraction is
-                  not enabled yet.
-                </p>
-                <div className="editor-criteria-title">
-                  <h3>Review criteria</h3>
-                  <span>
-                    Higher weights have more effect on the overall score.
-                  </span>
-                </div>
-                {draft.criteria.map((c, i) => (
-                  <div className="criterion-editor" key={i}>
-                    <div className="form-row">
-                      <label>
-                        Criterion {i + 1}
-                        <input
-                          required
-                          maxLength={100}
-                          value={c.name}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              criteria: draft.criteria.map((x, j) =>
-                                j === i ? { ...x, name: e.target.value } : x,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="weight-input">
-                        Weight
-                        <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          required
-                          value={c.weight}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              criteria: draft.criteria.map((x, j) =>
-                                j === i
-                                  ? { ...x, weight: Number(e.target.value) }
-                                  : x,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        aria-label={"Remove criterion " + (i + 1)}
-                        disabled={draft.criteria.length === 1}
-                        onClick={() =>
+              </div>
+              <label>
+                Input label
+                <input
+                  required
+                  maxLength={60}
+                  value={draft.input_label}
+                  onChange={(e) =>
+                    setDraft({ ...draft, input_label: e.target.value })
+                  }
+                  placeholder="Resume, document, proposal…"
+                />
+              </label>
+              <label>
+                {draft.category === "Resume"
+                  ? "Job description"
+                  : "Profile description"}
+                <textarea
+                  required
+                  maxLength={20000}
+                  rows={5}
+                  value={draft.description}
+                  onChange={(e) =>
+                    setDraft({ ...draft, description: e.target.value })
+                  }
+                  placeholder="Describe the purpose and requirements for this review."
+                />
+              </label>
+              <p className="field-hint">
+                Accepted input: PDF with selectable text. Image extraction is
+                not enabled yet.
+              </p>
+              <div className="editor-criteria-title">
+                <h3>Review criteria</h3>
+                <span>
+                  Higher weights have more effect on the overall score.
+                </span>
+              </div>
+              {draft.criteria.map((c, i) => (
+                <div className="criterion-editor" key={c._k}>
+                  <div className="form-row">
+                    <label>
+                      Criterion {i + 1}
+                      <input
+                        required
+                        maxLength={100}
+                        value={c.name}
+                        onChange={(e) =>
                           setDraft({
                             ...draft,
-                            criteria: draft.criteria.filter((_, j) => j !== i),
+                            criteria: draft.criteria.map((x, j) =>
+                              j === i ? { ...x, name: e.target.value } : x,
+                            ),
                           })
                         }
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-                    <label>
-                      Requirement
-                      <textarea
+                      />
+                    </label>
+                    <label className="weight-input">
+                      Weight
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
                         required
-                        maxLength={2000}
-                        rows={2}
-                        value={c.description}
+                        value={c.weight}
                         onChange={(e) =>
                           setDraft({
                             ...draft,
                             criteria: draft.criteria.map((x, j) =>
                               j === i
-                                ? { ...x, description: e.target.value }
+                                ? { ...x, weight: Number(e.target.value) }
                                 : x,
                             ),
                           })
                         }
                       />
                     </label>
+                    <button
+                      type="button"
+                      aria-label={"Remove criterion " + (i + 1)}
+                      disabled={draft.criteria.length === 1}
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          criteria: draft.criteria.filter((_, j) => j !== i),
+                        })
+                      }
+                    >
+                      <Trash2 size={17} />
+                    </button>
                   </div>
-                ))}
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={draft.criteria.length >= 20}
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      criteria: [
-                        ...draft.criteria,
-                        { name: "", description: "", weight: 1 },
-                      ],
-                    })
-                  }
-                >
-                  <Plus size={15} />
-                  Add criterion
-                </button>
-              </div>
-              <footer>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={!!busy}
-                  onClick={() => setDraft(null)}
-                >
-                  Cancel
-                </button>
-                <button className="primary" disabled={!!busy}>
-                  {busy === "save" ? "Saving…" : "Save profile"}
-                  <Check size={16} />
-                </button>
-              </footer>
-            </form>
-          </section>
-        </div>
-      )}
-      {deleteId && (
-        <div className="modal-backdrop">
-          <section
-            className="modal confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-title"
-          >
-            <h2 id="delete-title">Delete this profile?</h2>
-            <p>The profile and its criteria will be removed.</p>
-            <div>
-              <button className="secondary" onClick={() => setDeleteId("")}>
-                Cancel
-              </button>
+                  <label>
+                    Requirement
+                    <textarea
+                      required
+                      maxLength={2000}
+                      rows={2}
+                      value={c.description}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          criteria: draft.criteria.map((x, j) =>
+                            j === i ? { ...x, description: e.target.value } : x,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
               <button
-                className="primary danger"
-                disabled={!!busy}
-                onClick={deleteProfile}
+                className="secondary"
+                type="button"
+                disabled={draft.criteria.length >= 20}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    criteria: [
+                      ...draft.criteria,
+                      { name: "", description: "", weight: 1, _k: rowKey() },
+                    ],
+                  })
+                }
               >
-                Delete profile
+                <Plus size={15} />
+                Add criterion
               </button>
             </div>
-          </section>
-        </div>
+            <footer>
+              <button
+                type="button"
+                className="secondary"
+                disabled={!!busy}
+                onClick={() => setDraft(null)}
+              >
+                Cancel
+              </button>
+              <button className="primary" disabled={!!busy}>
+                {busy === "save" ? "Saving…" : "Save profile"}
+                <Check size={16} />
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
+      {deleteId && (
+        <Modal
+          labelledBy="delete-title"
+          variant="confirm"
+          locked={!!busy}
+          onClose={() => setDeleteId("")}
+        >
+          <h2 id="delete-title">Delete this profile?</h2>
+          <p>The profile and its criteria will be removed.</p>
+          {error && (
+            <div className="alert error" role="alert">
+              {error}
+            </div>
+          )}
+          <div>
+            <button
+              className="secondary"
+              disabled={!!busy}
+              onClick={() => setDeleteId("")}
+            >
+              Cancel
+            </button>
+            <button
+              className="primary danger"
+              disabled={!!busy}
+              onClick={deleteProfile}
+            >
+              {busy === "delete" ? "Deleting…" : "Delete profile"}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

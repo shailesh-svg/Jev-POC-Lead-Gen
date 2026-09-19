@@ -21,7 +21,7 @@ from .prompts import catalog
 
 REQUEST_TIMEOUT = 90
 
-app = FastAPI(title='Align Review API', version='1.0.0')
+app = FastAPI(title='Align Workbench API', version='1.0.0')
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
 
 @app.middleware('http')

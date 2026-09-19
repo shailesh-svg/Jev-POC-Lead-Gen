@@ -13,7 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { api } from "./api";
+import { Modal } from "./Modal";
 import { RequestDetails, type ApiRequest } from "./PromptDetails";
+import { rowKey, stripKeys, withKeys, type Keyed } from "./rows";
 import { useModalKeys } from "./useModalKeys";
 
 const MAX_LEAD_CHARACTERS = 20000;
@@ -48,18 +50,40 @@ type LeadResult = {
   profile_name: string;
 };
 
-const blank = (): LeadProfile => ({
+type LeadDraft = Omit<LeadProfile, "criteria" | "routing"> & {
+  criteria: Keyed<Criterion>[];
+  routing: Keyed<RoutingOption>[];
+};
+
+const toDraft = (profile: LeadProfile): LeadDraft => ({
+  ...structuredClone(profile),
+  criteria: withKeys(profile.criteria),
+  routing: withKeys(profile.routing),
+});
+
+const blank = (): LeadDraft => ({
   id: "",
   name: "",
   icp_description: "",
-  criteria: [{ name: "", description: "", weight: 1 }],
-  industry_levels: ["Poor industry fit", "Adjacent industry", "Core target industry"],
+  criteria: [{ name: "", description: "", weight: 1, _k: rowKey() }],
+  industry_levels: [
+    "Poor industry fit",
+    "Adjacent industry",
+    "Core target industry",
+  ],
   maturity_levels: ["Early-stage", "Growth-stage", "Enterprise"],
   intent_levels: ["No stated need", "Some interest", "Ready to buy"],
-  routing: [
-    { name: "immediate_outreach", description: "Strong fit and intent. Route to sales for immediate outreach." },
-    { name: "disqualify", description: "Poor fit or no real signal. Disqualify the lead." },
-  ],
+  routing: withKeys([
+    {
+      name: "immediate_outreach",
+      description:
+        "Strong fit and intent. Route to sales for immediate outreach.",
+    },
+    {
+      name: "disqualify",
+      description: "Poor fit or no real signal. Disqualify the lead.",
+    },
+  ]),
 });
 
 function LevelListEditor({
@@ -82,12 +106,19 @@ function LevelListEditor({
       {values.map((v, i) => (
         <div className="form-row level-row" key={i}>
           <label>
-            Level {i + 1} {i === 0 ? "(weakest)" : i === values.length - 1 ? "(strongest)" : ""}
+            Level {i + 1}{" "}
+            {i === 0
+              ? "(weakest)"
+              : i === values.length - 1
+                ? "(strongest)"
+                : ""}
             <input
               required
               maxLength={300}
               value={v}
-              onChange={(e) => onChange(values.map((x, j) => (j === i ? e.target.value : x)))}
+              onChange={(e) =>
+                onChange(values.map((x, j) => (j === i ? e.target.value : x)))
+              }
             />
           </label>
           <button
@@ -127,7 +158,7 @@ export function LeadGeneration({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(""),
-    [draft, setDraft] = useState<LeadProfile | null>(null),
+    [draft, setDraft] = useState<LeadDraft | null>(null),
     [deleteId, setDeleteId] = useState("");
   const generation = useRef(0);
   const profile = profiles.find((p) => p.id === selected);
@@ -138,13 +169,16 @@ export function LeadGeneration({
   async function refresh() {
     const ps = await api("/lead-profiles");
     setProfiles(ps);
-    setSelected((old) => (ps.some((p: LeadProfile) => p.id === old) ? old : ps[0]?.id || ""));
+    setSelected((old) =>
+      ps.some((p: LeadProfile) => p.id === old) ? old : ps[0]?.id || "",
+    );
   }
   useEffect(() => {
     // Templates ship with the server and never change, so they load once.
-    Promise.all([refresh(), api("/lead-profile-templates").then(setMoreTemplates)]).catch((e) =>
-      setError(e.message),
-    );
+    Promise.all([
+      refresh(),
+      api("/lead-profile-templates").then(setMoreTemplates),
+    ]).catch((e) => setError(e.message));
   }, []);
   function invalidate() {
     generation.current++;
@@ -184,7 +218,11 @@ export function LeadGeneration({
     try {
       const p = await api("/lead-profiles" + (draft.id ? "/" + draft.id : ""), {
         method: draft.id ? "PUT" : "POST",
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          criteria: stripKeys(draft.criteria),
+          routing: stripKeys(draft.routing),
+        }),
       });
       await refresh();
       setSelected(p.id);
@@ -212,7 +250,7 @@ export function LeadGeneration({
   }
   return (
     <>
-      {error && (
+      {error && !draft && !deleteId && (
         <div className="alert error" role="alert">
           {error}
           <button aria-label="Dismiss error" onClick={() => setError("")}>
@@ -240,7 +278,9 @@ export function LeadGeneration({
               invalidate();
             }}
           >
-            {!profiles.length && <option value="">Choose an ICP to get started</option>}
+            {!profiles.length && (
+              <option value="">Choose an ICP to get started</option>
+            )}
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -249,11 +289,13 @@ export function LeadGeneration({
           </select>
         </div>
         <span className="profile-meta">
-          {profile ? `${profile.criteria.length} ICP criteria · ${profile.routing.length} routes` : "Define your ideal customer"}
+          {profile
+            ? `${profile.criteria.length} ICP criteria · ${profile.routing.length} routes`
+            : "Define your ideal customer"}
         </span>
         <button
           className="text-button"
-          onClick={() => (profile ? setDraft(structuredClone(profile)) : setDraft(blank()))}
+          onClick={() => setDraft(profile ? toDraft(profile) : blank())}
         >
           {profile ? "Edit ICP" : "Create ICP"}
           <ArrowUpRight size={15} />
@@ -283,24 +325,27 @@ export function LeadGeneration({
             />
             <div className="preview-label char-count">
               <span>
-                {text.length.toLocaleString()} / {MAX_LEAD_CHARACTERS.toLocaleString()} characters
+                {text.length.toLocaleString()} /{" "}
+                {MAX_LEAD_CHARACTERS.toLocaleString()} characters
               </span>
-              {text.length >= MAX_LEAD_CHARACTERS && <span>Character limit reached</span>}
+              {text.length >= MAX_LEAD_CHARACTERS && (
+                <span>Character limit reached</span>
+              )}
             </div>
             <div className="upload-help">
               <Target size={18} />
               <div>
                 <b>One lead. A clear next step.</b>
                 <p>
-                  Paste a company profile, an executive bio, or an inbound message.
-                  Your ICP profile decides how it is scored and routed.
+                  Paste a company profile, an executive bio, or an inbound
+                  message. Your ICP profile decides how it is scored and routed.
                 </p>
               </div>
             </div>
             <div className="input-footer">
               <p>
-                <TriangleAlert size={14} /> Lead content is not stored. Text is sent to
-                TypeSafe for scoring.
+                <TriangleAlert size={14} /> Lead content is not stored. Text is
+                sent to TypeSafe for scoring.
               </p>
               <button
                 className="primary wide"
@@ -320,7 +365,8 @@ export function LeadGeneration({
               </button>
               {!configured ? (
                 <button className="setup-link" onClick={openSettings}>
-                  Connect your TypeSafe API key to score leads <ArrowUpRight size={12} />
+                  Connect your TypeSafe API key to score leads{" "}
+                  <ArrowUpRight size={12} />
                 </button>
               ) : (
                 blocked && (
@@ -338,7 +384,9 @@ export function LeadGeneration({
               <span className="step">02</span>
               <h2>Lead insights</h2>
             </div>
-            <span className="small-pill">{result ? "Complete" : "Overview"}</span>
+            <span className="small-pill">
+              {result ? "Complete" : "Overview"}
+            </span>
           </div>
           {result ? (
             <div className="results-body">
@@ -346,13 +394,18 @@ export function LeadGeneration({
               {result.needs_review && (
                 <div className="alert warning" role="status">
                   <span>
-                    <TriangleAlert size={14} /> Low model confidence on intent or routing.
-                    Review this lead before acting on it.
+                    <TriangleAlert size={14} /> Low model confidence on intent
+                    or routing. Review this lead before acting on it.
                   </span>
                 </div>
               )}
               <div className="score-top">
-                <div className="score-ring" style={{ "--score": result.priority + "%" } as React.CSSProperties}>
+                <div
+                  className="score-ring"
+                  style={
+                    { "--score": result.priority + "%" } as React.CSSProperties
+                  }
+                >
                   <div>
                     <strong>
                       {result.priority}
@@ -366,7 +419,10 @@ export function LeadGeneration({
                     {result.tier} lead
                   </span>
                   <h3>{result.profile_name}</h3>
-                  <p>ICP fit {result.icp_fit}% · Route: {result.route.replace(/_/g, " ")}</p>
+                  <p>
+                    ICP fit {result.icp_fit}% · Route:{" "}
+                    {result.route.replace(/_/g, " ")}
+                  </p>
                 </div>
               </div>
               <div className="level-grid">
@@ -417,15 +473,28 @@ export function LeadGeneration({
                   </div>
                 </div>
               ))}
+              <button
+                className="secondary reset-lead"
+                onClick={() => {
+                  setText("");
+                  invalidate();
+                }}
+              >
+                Score another lead <ArrowRight size={15} />
+              </button>
               <p className="method-note">
-                Priority combines ICP fit (40%), industry fit (20%), company maturity
-                (15%), and purchase intent (25%) into one number you control. Check
-                the source text before acting on a lead.
+                Priority combines ICP fit (40%), industry fit (20%), company
+                maturity (15%), and purchase intent (25%) into one number you
+                control. Check the source text before acting on a lead.
               </p>
             </div>
           ) : (
             <div className="empty-results">
-              <div className={"insight-illustration " + (busy === "score" ? "pulse" : "")}>
+              <div
+                className={
+                  "insight-illustration " + (busy === "score" ? "pulse" : "")
+                }
+              >
                 <span>
                   <CheckCheck size={29} />
                 </span>
@@ -433,7 +502,11 @@ export function LeadGeneration({
                 <div />
                 <div />
               </div>
-              <h3>{busy === "score" ? "Scoring against your ICP…" : "One lead. One clear route."}</h3>
+              <h3>
+                {busy === "score"
+                  ? "Scoring against your ICP…"
+                  : "One lead. One clear route."}
+              </h3>
               <p>
                 {busy === "score"
                   ? "TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route. This can take up to 90 seconds."
@@ -457,13 +530,15 @@ export function LeadGeneration({
       <div className="template-banner">
         <div>
           <h3>Start with a useful ICP template</h3>
-          <p>Use a starting point, then adjust criteria, levels, and routing.</p>
+          <p>
+            Use a starting point, then adjust criteria, levels, and routing.
+          </p>
         </div>
         {moreTemplates.map((t, i) => (
           <button
             key={t.name}
             className="secondary"
-            onClick={() => setDraft({ ...structuredClone(t), id: "" })}
+            onClick={() => setDraft({ ...toDraft(t), id: "" })}
           >
             <Target size={16} /> {t.name}
           </button>
@@ -489,10 +564,16 @@ export function LeadGeneration({
               >
                 Use ICP <ArrowRight size={15} />
               </button>
-              <button aria-label={"Edit " + p.name} onClick={() => setDraft(structuredClone(p))}>
+              <button
+                aria-label={"Edit " + p.name}
+                onClick={() => setDraft(toDraft(p))}
+              >
                 <Pencil size={16} />
               </button>
-              <button aria-label={"Delete " + p.name} onClick={() => setDeleteId(p.id)}>
+              <button
+                aria-label={"Delete " + p.name}
+                onClick={() => setDeleteId(p.id)}
+              >
                 <Trash2 size={16} />
               </button>
             </footer>
@@ -507,232 +588,292 @@ export function LeadGeneration({
         </div>
       )}
       {draft && (
-        <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="lead-editor-title">
-            <form onSubmit={saveProfile}>
-              <header>
-                <div>
-                  <span className="eyebrow">LEAD SCORING CONFIGURATION</span>
-                  <h2 id="lead-editor-title">{draft.id ? "Edit ICP profile" : "Create an ICP profile"}</h2>
+        <Modal
+          labelledBy="lead-editor-title"
+          locked={!!busy}
+          onClose={() => setDraft(null)}
+        >
+          <form onSubmit={saveProfile}>
+            <header>
+              <div>
+                <span className="eyebrow">LEAD SCORING CONFIGURATION</span>
+                <h2 id="lead-editor-title">
+                  {draft.id ? "Edit ICP profile" : "Create an ICP profile"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Close editor"
+                disabled={!!busy}
+                onClick={() => setDraft(null)}
+              >
+                <X />
+              </button>
+            </header>
+            <div className="modal-body">
+              {error && (
+                <div className="alert error" role="alert">
+                  {error}
                 </div>
-                <button type="button" aria-label="Close editor" disabled={!!busy} onClick={() => setDraft(null)}>
-                  <X />
-                </button>
-              </header>
-              <div className="modal-body">
-                {error && (
-                  <div className="alert error" role="alert">
-                    {error}
-                  </div>
-                )}
-                <label>
-                  Profile name
-                  <input
-                    autoFocus
-                    required
-                    maxLength={120}
-                    value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                    placeholder="e.g. Enterprise DevOps Platform"
-                  />
-                </label>
-                <label>
-                  Ideal customer profile
-                  <textarea
-                    required
-                    maxLength={20000}
-                    rows={4}
-                    value={draft.icp_description}
-                    onChange={(e) => setDraft({ ...draft, icp_description: e.target.value })}
-                    placeholder="Describe who you sell to and who the buyer is."
-                  />
-                </label>
-                <div className="editor-criteria-title">
-                  <h3>ICP fit criteria</h3>
-                  <span>Higher weights have more effect on the overall ICP fit.</span>
-                </div>
-                {draft.criteria.map((c, i) => (
-                  <div className="criterion-editor" key={i}>
-                    <div className="form-row">
-                      <label>
-                        Criterion {i + 1}
-                        <input
-                          required
-                          maxLength={100}
-                          value={c.name}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              criteria: draft.criteria.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="weight-input">
-                        Weight
-                        <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          required
-                          value={c.weight}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              criteria: draft.criteria.map((x, j) =>
-                                j === i ? { ...x, weight: Number(e.target.value) } : x,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        aria-label={"Remove criterion " + (i + 1)}
-                        disabled={draft.criteria.length === 1}
-                        onClick={() =>
-                          setDraft({ ...draft, criteria: draft.criteria.filter((_, j) => j !== i) })
-                        }
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
+              )}
+              <label>
+                Profile name
+                <input
+                  autoFocus
+                  required
+                  maxLength={120}
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  placeholder="e.g. Enterprise DevOps Platform"
+                />
+              </label>
+              <label>
+                Ideal customer profile
+                <textarea
+                  required
+                  maxLength={20000}
+                  rows={4}
+                  value={draft.icp_description}
+                  onChange={(e) =>
+                    setDraft({ ...draft, icp_description: e.target.value })
+                  }
+                  placeholder="Describe who you sell to and who the buyer is."
+                />
+              </label>
+              <div className="editor-criteria-title">
+                <h3>ICP fit criteria</h3>
+                <span>
+                  Higher weights have more effect on the overall ICP fit.
+                </span>
+              </div>
+              {draft.criteria.map((c, i) => (
+                <div className="criterion-editor" key={c._k}>
+                  <div className="form-row">
                     <label>
-                      Requirement
-                      <textarea
+                      Criterion {i + 1}
+                      <input
                         required
-                        maxLength={2000}
-                        rows={2}
-                        value={c.description}
+                        maxLength={100}
+                        value={c.name}
                         onChange={(e) =>
                           setDraft({
                             ...draft,
                             criteria: draft.criteria.map((x, j) =>
-                              j === i ? { ...x, description: e.target.value } : x,
+                              j === i ? { ...x, name: e.target.value } : x,
                             ),
                           })
                         }
                       />
                     </label>
-                  </div>
-                ))}
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={draft.criteria.length >= 20}
-                  onClick={() =>
-                    setDraft({ ...draft, criteria: [...draft.criteria, { name: "", description: "", weight: 1 }] })
-                  }
-                >
-                  <Plus size={15} /> Add criterion
-                </button>
-                <LevelListEditor
-                  title="Industry fit levels"
-                  hint="Ordered from weakest to strongest industry fit."
-                  values={draft.industry_levels}
-                  onChange={(v) => setDraft({ ...draft, industry_levels: v })}
-                />
-                <LevelListEditor
-                  title="Company maturity levels"
-                  hint="Ordered from least to most organizationally mature."
-                  values={draft.maturity_levels}
-                  onChange={(v) => setDraft({ ...draft, maturity_levels: v })}
-                />
-                <LevelListEditor
-                  title="Purchase intent levels"
-                  hint="Ordered from no stated need to ready to buy."
-                  values={draft.intent_levels}
-                  onChange={(v) => setDraft({ ...draft, intent_levels: v })}
-                />
-                <div className="editor-criteria-title">
-                  <h3>Routing destinations</h3>
-                  <span>TypeSafe selects exactly one destination per lead.</span>
-                </div>
-                {draft.routing.map((r, i) => (
-                  <div className="criterion-editor" key={i}>
-                    <div className="form-row">
-                      <label>
-                        Destination {i + 1}
-                        <input
-                          required
-                          maxLength={60}
-                          value={r.name}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              routing: draft.routing.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
-                            })
-                          }
-                          placeholder="e.g. immediate_sdr_outreach"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        aria-label={"Remove destination " + (i + 1)}
-                        disabled={draft.routing.length <= 2}
-                        onClick={() => setDraft({ ...draft, routing: draft.routing.filter((_, j) => j !== i) })}
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-                    <label>
-                      When to use this route
-                      <textarea
+                    <label className="weight-input">
+                      Weight
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
                         required
-                        maxLength={500}
-                        rows={2}
-                        value={r.description}
+                        value={c.weight}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            criteria: draft.criteria.map((x, j) =>
+                              j === i
+                                ? { ...x, weight: Number(e.target.value) }
+                                : x,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      aria-label={"Remove criterion " + (i + 1)}
+                      disabled={draft.criteria.length === 1}
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          criteria: draft.criteria.filter((_, j) => j !== i),
+                        })
+                      }
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
+                  <label>
+                    Requirement
+                    <textarea
+                      required
+                      maxLength={2000}
+                      rows={2}
+                      value={c.description}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          criteria: draft.criteria.map((x, j) =>
+                            j === i ? { ...x, description: e.target.value } : x,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+              <button
+                className="secondary"
+                type="button"
+                disabled={draft.criteria.length >= 20}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    criteria: [
+                      ...draft.criteria,
+                      { name: "", description: "", weight: 1, _k: rowKey() },
+                    ],
+                  })
+                }
+              >
+                <Plus size={15} /> Add criterion
+              </button>
+              <LevelListEditor
+                title="Industry fit levels"
+                hint="Ordered from weakest to strongest industry fit."
+                values={draft.industry_levels}
+                onChange={(v) => setDraft({ ...draft, industry_levels: v })}
+              />
+              <LevelListEditor
+                title="Company maturity levels"
+                hint="Ordered from least to most organizationally mature."
+                values={draft.maturity_levels}
+                onChange={(v) => setDraft({ ...draft, maturity_levels: v })}
+              />
+              <LevelListEditor
+                title="Purchase intent levels"
+                hint="Ordered from no stated need to ready to buy."
+                values={draft.intent_levels}
+                onChange={(v) => setDraft({ ...draft, intent_levels: v })}
+              />
+              <div className="editor-criteria-title">
+                <h3>Routing destinations</h3>
+                <span>TypeSafe selects exactly one destination per lead.</span>
+              </div>
+              {draft.routing.map((r, i) => (
+                <div className="criterion-editor" key={r._k}>
+                  <div className="form-row">
+                    <label>
+                      Destination {i + 1}
+                      <input
+                        required
+                        maxLength={60}
+                        value={r.name}
                         onChange={(e) =>
                           setDraft({
                             ...draft,
                             routing: draft.routing.map((x, j) =>
-                              j === i ? { ...x, description: e.target.value } : x,
+                              j === i ? { ...x, name: e.target.value } : x,
                             ),
                           })
                         }
+                        placeholder="e.g. immediate_sdr_outreach"
                       />
                     </label>
+                    <button
+                      type="button"
+                      aria-label={"Remove destination " + (i + 1)}
+                      disabled={draft.routing.length <= 2}
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          routing: draft.routing.filter((_, j) => j !== i),
+                        })
+                      }
+                    >
+                      <Trash2 size={17} />
+                    </button>
                   </div>
-                ))}
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={draft.routing.length >= 8}
-                  onClick={() =>
-                    setDraft({ ...draft, routing: [...draft.routing, { name: "", description: "" }] })
-                  }
-                >
-                  <Plus size={15} /> Add destination
-                </button>
-              </div>
-              <footer>
-                <button type="button" className="secondary" disabled={!!busy} onClick={() => setDraft(null)}>
-                  Cancel
-                </button>
-                <button className="primary" disabled={!!busy}>
-                  {busy === "save" ? "Saving…" : "Save ICP profile"}
-                  <Check size={16} />
-                </button>
-              </footer>
-            </form>
-          </section>
-        </div>
-      )}
-      {deleteId && (
-        <div className="modal-backdrop">
-          <section className="modal confirm" role="dialog" aria-modal="true" aria-labelledby="lead-delete-title">
-            <h2 id="lead-delete-title">Delete this ICP profile?</h2>
-            <p>The profile, its criteria, levels, and routing will be removed.</p>
-            <div>
-              <button className="secondary" onClick={() => setDeleteId("")}>
-                Cancel
-              </button>
-              <button className="primary danger" disabled={!!busy} onClick={deleteProfile}>
-                Delete profile
+                  <label>
+                    When to use this route
+                    <textarea
+                      required
+                      maxLength={500}
+                      rows={2}
+                      value={r.description}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          routing: draft.routing.map((x, j) =>
+                            j === i ? { ...x, description: e.target.value } : x,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+              <button
+                className="secondary"
+                type="button"
+                disabled={draft.routing.length >= 8}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    routing: [
+                      ...draft.routing,
+                      { name: "", description: "", _k: rowKey() },
+                    ],
+                  })
+                }
+              >
+                <Plus size={15} /> Add destination
               </button>
             </div>
-          </section>
-        </div>
+            <footer>
+              <button
+                type="button"
+                className="secondary"
+                disabled={!!busy}
+                onClick={() => setDraft(null)}
+              >
+                Cancel
+              </button>
+              <button className="primary" disabled={!!busy}>
+                {busy === "save" ? "Saving…" : "Save ICP profile"}
+                <Check size={16} />
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
+      {deleteId && (
+        <Modal
+          labelledBy="lead-delete-title"
+          variant="confirm"
+          locked={!!busy}
+          onClose={() => setDeleteId("")}
+        >
+          <h2 id="lead-delete-title">Delete this ICP profile?</h2>
+          <p>The profile, its criteria, levels, and routing will be removed.</p>
+          {error && (
+            <div className="alert error" role="alert">
+              {error}
+            </div>
+          )}
+          <div>
+            <button
+              className="secondary"
+              disabled={!!busy}
+              onClick={() => setDeleteId("")}
+            >
+              Cancel
+            </button>
+            <button
+              className="primary danger"
+              disabled={!!busy}
+              onClick={deleteProfile}
+            >
+              {busy === "delete" ? "Deleting…" : "Delete profile"}
+            </button>
+          </div>
+        </Modal>
       )}
     </>
   );

@@ -1,4 +1,8 @@
-# Run Align
+# Run Align Workbench
+
+Align Workbench is a TypeSafe AI demo with three tools in one app: document
+review against a profile, PDF classification, and lead scoring against an
+ideal customer profile.
 
 These commands are for macOS or Linux.
 
