@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Start Align Workbench: sets up whatever is missing, builds the frontend if it
+# is stale, then serves the app. Safe to run every time.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+PORT="${PORT:-8000}"
+OPEN=1
+REBUILD=0
+
+usage() {
+  cat <<'TEXT'
+Usage: ./start [options]
+
+  --port=N     Serve on port N (default 8000, or the next free port).
+  --rebuild    Rebuild the frontend even if it looks current.
+  --no-open    Do not open the browser.
+  -h, --help   Show this message.
+
+First run installs the Python virtualenv and the frontend packages, so it
+takes a couple of minutes. Later runs start in a second. Press Ctrl+C to stop.
+TEXT
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --port=*) PORT="${arg#*=}" ;;
+    --rebuild) REBUILD=1 ;;
+    --no-open) OPEN=0 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+say() { printf '\033[32m▸\033[0m %s\n' "$1"; }
+die() {
+  printf '\033[31m✗\033[0m %s\n' "$1" >&2
+  exit 1
+}
+
+find_python() {
+  for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "$candidate" >/dev/null 2>&1 &&
+      "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ ! -x .venv/bin/python ]; then
+  python_cmd="$(find_python)" || die "Python 3.11 or newer is required. Install it, then run ./start again."
+  say "Creating .venv with $python_cmd"
+  "$python_cmd" -m venv .venv
+fi
+
+# Reinstall only when requirements.txt is newer than the last successful install.
+stamp=.venv/.requirements-installed
+if [ ! -f "$stamp" ] || [ requirements.txt -nt "$stamp" ]; then
+  say "Installing Python packages"
+  .venv/bin/python -m pip install --quiet --upgrade pip
+  .venv/bin/python -m pip install --quiet -r requirements.txt
+  touch "$stamp"
+fi
+
+command -v npm >/dev/null 2>&1 || die "npm is required. Install Node.js 20.19 or newer, then run ./start again."
+
+if [ ! -d frontend/node_modules ]; then
+  say "Installing frontend packages"
+  (cd frontend && npm ci --silent)
+fi
+
+needs_build=0
+if [ "$REBUILD" = 1 ] || [ ! -f frontend/dist/index.html ]; then
+  needs_build=1
+elif [ -n "$(find frontend/src frontend/index.html frontend/package.json -newer frontend/dist/index.html 2>/dev/null | head -1)" ]; then
+  needs_build=1
+fi
+if [ "$needs_build" = 1 ]; then
+  say "Building the frontend"
+  (cd frontend && npm run build --silent)
+fi
+
+port_free() {
+  .venv/bin/python - "$1" <<'PY'
+import socket, sys
+probe = socket.socket()
+try:
+    probe.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    sys.exit(1)
+finally:
+    probe.close()
+PY
+}
+
+chosen="$PORT"
+while ! port_free "$chosen"; do
+  chosen=$((chosen + 1))
+  [ "$chosen" -gt $((PORT + 20)) ] && die "No free port between $PORT and $chosen."
+done
+if [ "$chosen" != "$PORT" ]; then
+  say "Port $PORT is busy, using $chosen instead"
+fi
+
+url="http://127.0.0.1:$chosen"
+say "Align Workbench is starting on $url"
+if [ -z "${TYPESAFE_API_KEY:-}" ] && [ ! -f backend/data/align.db ]; then
+  say "First time here: open Settings and paste your TypeSafe API key."
+fi
+say "Press Ctrl+C to stop."
+
+if [ "$OPEN" = 1 ]; then
+  opener=""
+  command -v open >/dev/null 2>&1 && opener=open
+  [ -z "$opener" ] && command -v xdg-open >/dev/null 2>&1 && opener=xdg-open
+  [ -n "$opener" ] && (sleep 2 && "$opener" "$url" >/dev/null 2>&1 || true) &
+fi
+
+exec .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port "$chosen"

@@ -1,4 +1,4 @@
-# Run Align Workbench
+# Align Workbench
 
 Align Workbench is a TypeSafe AI demo with three tools in one app: document
 review against a profile, PDF classification, and lead scoring against an
@@ -6,58 +6,38 @@ ideal customer profile.
 
 These commands are for macOS or Linux.
 
-## Prerequisites
+## Run it
 
-Install:
-
-- Python 3.11 or newer (`python3`)
-- Node.js 20.19 or newer, with npm
-
-## First-time setup
-
-Open a terminal in the project folder: the folder that contains `requirements.txt`, `backend`, and `frontend`.
-
-Run these commands in order:
+Install Python 3.11 or newer and Node.js 20.19 or newer, then, from the project
+folder:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-cd frontend
-npm ci
-npm run build
-cd ..
+./start
 ```
 
-## Start the application
+That is the whole thing. It creates the virtualenv, installs both sets of
+packages, builds the frontend and opens [http://127.0.0.1:8000](http://127.0.0.1:8000).
+The first run takes a couple of minutes; later runs start in a second and only
+rebuild the frontend when its source has changed.
 
-From the project folder, run:
+Press `Ctrl+C` to stop. Run `./start` again to pick up where you left off.
+
+Options:
 
 ```sh
-.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+./start --port=8100   # serve somewhere else
+./start --rebuild     # force a frontend rebuild
+./start --no-open     # do not open the browser
+./start --help
 ```
 
-Keep this terminal open while you use the application. This command serves both the Python backend and the built React frontend. No second server is needed.
+If the port is busy, `./start` moves to the next free one and tells you which.
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
+## Add your API key
 
-## Stop and start again
-
-Press `Ctrl+C` in the terminal to stop the application.
-
-To start it again, run the same start command from the project folder. You do not need to repeat first-time setup.
-
-## After a frontend code change
-
-Stop the application, then run these commands from the project folder:
-
-```sh
-cd frontend
-npm run build
-cd ..
-.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-Refresh the browser after the server starts.
+Open Settings in the app and paste your TypeSafe API key. It is encrypted on
+this computer and is never returned to the browser. A `TYPESAFE_API_KEY`
+environment variable works too.
 
 ## Score several leads at once
 
@@ -72,12 +52,16 @@ queue.
 cd frontend && npm test
 ```
 
-## If port 8000 is already in use
+## Running the steps yourself
 
-Use a different port:
+`./start` does the following, if you would rather run them by hand:
 
 ```sh
-.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8001
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cd frontend && npm ci && npm run build && cd ..
+.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Then open [http://127.0.0.1:8001](http://127.0.0.1:8001).
+One server serves both the Python backend and the built React frontend. After
+a frontend change, rebuild with `npm run build` in `frontend` and refresh.
