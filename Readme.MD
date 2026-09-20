@@ -45,6 +45,8 @@ In the lead generation tab, separate leads with a line of `---` to score up to
 ten in one pass. They come back ranked by priority, and `Export CSV` saves the
 queue.
 
+[DEMO.md](DEMO.md) walks through this with sample leads to paste.
+
 ## Run the tests
 
 ```sh

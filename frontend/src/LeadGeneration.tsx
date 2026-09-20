@@ -15,8 +15,14 @@ import {
 import { api } from "./api";
 import { LeadQueue, LeadResultDetail } from "./LeadResult";
 import { Modal } from "./Modal";
-import { splitLeads } from "./leadFormat";
+import {
+  MAX_BATCH,
+  MAX_BOX_CHARACTERS,
+  scoreBlocker,
+  splitLeads,
+} from "./leadFormat";
 import { rowKey, stripKeys, withKeys, type Keyed } from "./rows";
+import { formatElapsed, useElapsed } from "./useElapsed";
 import { useModalKeys } from "./useModalKeys";
 import type {
   Criterion,
@@ -25,10 +31,6 @@ import type {
   LeadResult,
   RoutingOption,
 } from "./leadTypes";
-
-const MAX_LEAD_CHARACTERS = 20000;
-const MIN_LEAD_CHARACTERS = 20;
-const MAX_BATCH = 10;
 
 type LeadDraft = Omit<LeadProfile, "criteria" | "routing"> & {
   criteria: Keyed<Criterion>[];
@@ -145,6 +147,8 @@ export function LeadGeneration({
     [deleteId, setDeleteId] = useState("");
   const generation = useRef(0);
   const profile = profiles.find((p) => p.id === selected);
+  const scoring = busy === "score";
+  const elapsed = useElapsed(scoring);
   useModalKeys(!!draft || !!deleteId, !!busy, () => {
     setDraft(null);
     setDeleteId("");
@@ -172,15 +176,7 @@ export function LeadGeneration({
     setNotice("");
   }
   const leads = splitLeads(text);
-  const blocked = !configured
-    ? ""
-    : !profile
-      ? "Choose or create an ICP profile before scoring."
-      : !leads.length || leads.some((lead) => lead.length < MIN_LEAD_CHARACTERS)
-        ? `Every lead needs at least ${MIN_LEAD_CHARACTERS} characters.`
-        : leads.length > MAX_BATCH
-          ? `Score at most ${MAX_BATCH} leads at a time. This box holds ${leads.length}.`
-          : "";
+  const blocked = scoreBlocker({ configured, hasProfile: !!profile, leads });
   async function score() {
     if (!profile || blocked) return;
     invalidate();
@@ -315,7 +311,7 @@ export function LeadGeneration({
               aria-label="Lead content"
               placeholder="Paste a company profile, executive bio, or inbound message…"
               value={text}
-              maxLength={MAX_LEAD_CHARACTERS}
+              maxLength={MAX_BOX_CHARACTERS}
               disabled={!!busy}
               onChange={(e) => {
                 setText(e.target.value);
@@ -324,10 +320,10 @@ export function LeadGeneration({
             />
             <div className="preview-label char-count">
               <span>
-                {text.length.toLocaleString()} /{" "}
-                {MAX_LEAD_CHARACTERS.toLocaleString()} characters
+                {leads.length > 1 && `${leads.length} leads · `}
+                {text.length.toLocaleString()} characters
               </span>
-              {text.length >= MAX_LEAD_CHARACTERS && (
+              {text.length >= MAX_BOX_CHARACTERS && (
                 <span>Character limit reached</span>
               )}
             </div>
@@ -353,12 +349,13 @@ export function LeadGeneration({
                 disabled={!!busy || !!blocked || !configured}
                 onClick={score}
               >
-                {busy === "score" ? (
+                {scoring ? (
                   <>
                     <LoaderCircle size={17} className="spin" />
                     {leads.length > 1
                       ? `Scoring ${leads.length} leads…`
-                      : "Scoring lead…"}
+                      : "Scoring lead…"}{" "}
+                    {formatElapsed(elapsed)}
                   </>
                 ) : (
                   <>
@@ -429,9 +426,7 @@ export function LeadGeneration({
           ) : (
             <div className="empty-results">
               <div
-                className={
-                  "insight-illustration " + (busy === "score" ? "pulse" : "")
-                }
+                className={"insight-illustration " + (scoring ? "pulse" : "")}
               >
                 <span>
                   <CheckCheck size={29} />
@@ -441,12 +436,14 @@ export function LeadGeneration({
                 <div />
               </div>
               <h3>
-                {busy === "score"
-                  ? "Scoring against your ICP…"
+                {scoring
+                  ? leads.length > 1
+                    ? `Scoring ${leads.length} leads against your ICP… ${formatElapsed(elapsed)}`
+                    : `Scoring against your ICP… ${formatElapsed(elapsed)}`
                   : "One lead. One clear route."}
               </h3>
-              <p>
-                {busy === "score"
+              <p role={scoring ? "status" : undefined}>
+                {scoring
                   ? `TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route${leads.length > 1 ? `, for ${leads.length} leads` : ""}. This can take up to 90 seconds per lead.`
                   : "Choose an ICP and paste lead content. Your priority score and route will appear here."}
               </p>

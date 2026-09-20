@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { leadLabel, splitLeads, toCsv } from "./leadFormat";
+import {
+  MAX_LEAD_CHARACTERS,
+  leadLabel,
+  scoreBlocker,
+  splitLeads,
+  toCsv,
+} from "./leadFormat";
 import type { LeadBatch, LeadResult } from "./leadTypes";
 
 const result = (over: Partial<LeadResult> = {}): LeadResult => ({
@@ -83,5 +89,65 @@ describe("toCsv", () => {
     const failed = toCsv(batch, texts).split("\n")[2];
     expect(failed).toContain('"","","","","","","","",');
     expect(failed.endsWith('"TypeSafe could not score this lead."')).toBe(true);
+  });
+});
+
+describe("scoreBlocker", () => {
+  const ok = ["A lead with plenty of detail to score."];
+
+  it("says nothing while the key is missing, since the setup link covers that", () => {
+    expect(
+      scoreBlocker({ configured: false, hasProfile: false, leads: [] }),
+    ).toBe("");
+  });
+
+  it("asks for a profile first", () => {
+    expect(
+      scoreBlocker({ configured: true, hasProfile: false, leads: ok }),
+    ).toContain("ICP profile");
+  });
+
+  it("rejects an empty box and any lead that is too short", () => {
+    expect(
+      scoreBlocker({ configured: true, hasProfile: true, leads: [] }),
+    ).toContain("at least 20");
+    expect(
+      scoreBlocker({
+        configured: true,
+        hasProfile: true,
+        leads: [...ok, "too short"],
+      }),
+    ).toContain("at least 20");
+  });
+
+  it("rejects a single lead past the per-lead limit", () => {
+    const long = "x".repeat(MAX_LEAD_CHARACTERS + 1);
+    expect(
+      scoreBlocker({ configured: true, hasProfile: true, leads: [long] }),
+    ).toContain("under 20,000");
+  });
+
+  it("allows a full queue of full-length leads but not an eleventh", () => {
+    const full = Array(10).fill("x".repeat(MAX_LEAD_CHARACTERS));
+    expect(
+      scoreBlocker({ configured: true, hasProfile: true, leads: full }),
+    ).toBe("");
+    expect(
+      scoreBlocker({
+        configured: true,
+        hasProfile: true,
+        leads: [...full, ok[0]],
+      }),
+    ).toContain("at most 10");
+  });
+
+  it("passes a ready queue", () => {
+    expect(
+      scoreBlocker({
+        configured: true,
+        hasProfile: true,
+        leads: [...ok, ...ok],
+      }),
+    ).toBe("");
   });
 });
