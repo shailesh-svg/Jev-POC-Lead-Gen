@@ -21,7 +21,9 @@ from .models import Profile, Settings, LeadProfile
 from .prompts import catalog
 
 REQUEST_TIMEOUT = 90
-MAX_BATCH = 10
+# A lead scores in about a second and three run at a time, so 25 lands in
+# roughly ten seconds. The cap exists to bound one request, not to ration.
+MAX_BATCH = 25
 BATCH_CONCURRENCY = 3
 
 app = FastAPI(title='Align Workbench API', version='1.0.0')

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_LEAD_CHARACTERS,
+  leadIssue,
   leadLabel,
-  scoreBlocker,
   splitLeads,
   toCsv,
 } from "./leadFormat";
@@ -92,62 +92,21 @@ describe("toCsv", () => {
   });
 });
 
-describe("scoreBlocker", () => {
-  const ok = ["A lead with plenty of detail to score."];
-
-  it("says nothing while the key is missing, since the setup link covers that", () => {
-    expect(
-      scoreBlocker({ configured: false, hasProfile: false, leads: [] }),
-    ).toBe("");
+describe("leadIssue", () => {
+  it("passes a lead of workable length", () => {
+    expect(leadIssue("A lead with plenty of detail to score.")).toBe("");
   });
 
-  it("asks for a profile first", () => {
-    expect(
-      scoreBlocker({ configured: true, hasProfile: false, leads: ok }),
-    ).toContain("ICP profile");
+  it("names the problem for empty, short and oversized leads", () => {
+    expect(leadIssue("   ")).toBe("Empty");
+    expect(leadIssue("too short")).toContain("Too short");
+    expect(leadIssue("x".repeat(MAX_LEAD_CHARACTERS + 1))).toContain(
+      "Too long",
+    );
   });
 
-  it("rejects an empty box and any lead that is too short", () => {
-    expect(
-      scoreBlocker({ configured: true, hasProfile: true, leads: [] }),
-    ).toContain("at least 20");
-    expect(
-      scoreBlocker({
-        configured: true,
-        hasProfile: true,
-        leads: [...ok, "too short"],
-      }),
-    ).toContain("at least 20");
-  });
-
-  it("rejects a single lead past the per-lead limit", () => {
-    const long = "x".repeat(MAX_LEAD_CHARACTERS + 1);
-    expect(
-      scoreBlocker({ configured: true, hasProfile: true, leads: [long] }),
-    ).toContain("under 20,000");
-  });
-
-  it("allows a full queue of full-length leads but not an eleventh", () => {
-    const full = Array(10).fill("x".repeat(MAX_LEAD_CHARACTERS));
-    expect(
-      scoreBlocker({ configured: true, hasProfile: true, leads: full }),
-    ).toBe("");
-    expect(
-      scoreBlocker({
-        configured: true,
-        hasProfile: true,
-        leads: [...full, ok[0]],
-      }),
-    ).toContain("at most 10");
-  });
-
-  it("passes a ready queue", () => {
-    expect(
-      scoreBlocker({
-        configured: true,
-        hasProfile: true,
-        leads: [...ok, ...ok],
-      }),
-    ).toBe("");
+  it("measures the trimmed text, not the whitespace around it", () => {
+    expect(leadIssue("   " + "x".repeat(25) + "   ")).toBe("");
+    expect(leadIssue("   short   ")).toContain("Too short");
   });
 });

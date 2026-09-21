@@ -232,5 +232,5 @@ def test_batch_limits_and_requirements(client, lead_profile):
     client.put('/api/settings', json={'api_key': 'test-key'})
     assert client.post('/api/lead-scores/batch', json={'lead_profile_id': 'missing', 'leads': ['x' * 30]}).status_code == 404
     assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': []}).status_code == 422
-    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['x' * 30] * 11}).status_code == 422
+    assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['x' * 30] * 26}).status_code == 422
     assert client.post('/api/lead-scores/batch', json={'lead_profile_id': id, 'leads': ['too short']}).status_code == 422

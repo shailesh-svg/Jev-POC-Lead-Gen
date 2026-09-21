@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
+  Upload,
   Check,
   CheckCheck,
   LoaderCircle,
@@ -13,14 +14,19 @@ import {
   X,
 } from "lucide-react";
 import { api } from "./api";
-import { LeadQueue, LeadResultDetail } from "./LeadResult";
+import { IcpSummary } from "./IcpSummary";
+import { LeadResultDetail } from "./LeadResult";
+import { LeadReview } from "./LeadReview";
+import { LeadTable } from "./LeadTable";
 import { Modal } from "./Modal";
 import {
   MAX_BATCH,
   MAX_BOX_CHARACTERS,
-  scoreBlocker,
-  splitLeads,
+  MAX_LEAD_CHARACTERS,
+  MIN_LEAD_CHARACTERS,
 } from "./leadFormat";
+import { parseLeads, type ParsedLead } from "./leadParse";
+import { usePersisted } from "./usePersistedQueue";
 import { rowKey, stripKeys, withKeys, type Keyed } from "./rows";
 import { formatElapsed, useElapsed } from "./useElapsed";
 import { useModalKeys } from "./useModalKeys";
@@ -136,18 +142,29 @@ export function LeadGeneration({
     [moreTemplates, setMoreTemplates] = useState<LeadProfile[]>([]),
     [selected, setSelected] = useState(""),
     [text, setText] = useState(""),
-    [result, setResult] = useState<LeadResult | null>(null),
-    [batch, setBatch] = useState<LeadBatch | null>(null),
-    [batchTexts, setBatchTexts] = useState<string[]>([]),
+    [parsed, setParsed] = useState<ParsedLead[]>([]),
+    [dragging, setDragging] = useState(false),
+    [filter, setFilter] = useState<
+      "all" | "hot" | "warm" | "cold" | "out" | "flagged"
+    >("all"),
     [openLead, setOpenLead] = useState<number | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(""),
     [draft, setDraft] = useState<LeadDraft | null>(null),
     [deleteId, setDeleteId] = useState("");
+  const [saved, setSaved] = usePersisted<{
+    batch: LeadBatch;
+    texts: string[];
+  } | null>("align.leadQueue", null);
+  const batch = saved?.batch ?? null;
+  const batchTexts = saved?.texts ?? [];
+  const [result, setResult] = useState<LeadResult | null>(null);
   const generation = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
   const profile = profiles.find((p) => p.id === selected);
   const scoring = busy === "score";
+  const scored = !!batch || !!result;
   const elapsed = useElapsed(scoring);
   useModalKeys(!!draft || !!deleteId, !!busy, () => {
     setDraft(null);
@@ -170,35 +187,53 @@ export function LeadGeneration({
   function invalidate() {
     generation.current++;
     setResult(null);
-    setBatch(null);
+    setSaved(null);
     setOpenLead(null);
+    setFilter("all");
     setError("");
     setNotice("");
   }
-  const leads = splitLeads(text);
-  const blocked = scoreBlocker({ configured, hasProfile: !!profile, leads });
-  async function score() {
-    if (!profile || blocked) return;
+  /** Re-read the paste whenever it changes: the parse is always on screen. */
+  function readLeads(next: string) {
+    setText(next);
+    setParsed(parseLeads(next));
     invalidate();
-    const gen = generation.current;
+  }
+  async function readFile(file?: File) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Use a file smaller than 2 MB.");
+      return;
+    }
+    readLeads(await file.text());
+  }
+  const ready = parsed
+    .map((l) => l.text.trim())
+    .filter(
+      (t) => t.length >= MIN_LEAD_CHARACTERS && t.length <= MAX_LEAD_CHARACTERS,
+    )
+    .slice(0, MAX_BATCH);
+  async function score() {
+    if (!profile || !ready.length) return;
+    const gen = ++generation.current;
+    setResult(null);
+    setSaved(null);
+    setError("");
+    setNotice("");
     setBusy("score");
     try {
-      const single = leads.length === 1;
+      const single = ready.length === 1;
       const r = await api(single ? "/lead-scores" : "/lead-scores/batch", {
         method: "POST",
         body: JSON.stringify(
           single
-            ? { lead_profile_id: profile.id, text: leads[0] }
-            : { lead_profile_id: profile.id, leads },
+            ? { lead_profile_id: profile.id, text: ready[0] }
+            : { lead_profile_id: profile.id, leads: ready },
         ),
       });
       if (gen !== generation.current) return;
-      if (single) {
-        setResult(r);
-      } else {
-        setBatch(r);
-        setBatchTexts(leads);
-      }
+      if (single) setResult(r);
+      else setSaved({ batch: r, texts: ready });
     } catch (e) {
       if (gen === generation.current) setError((e as Error).message);
     } finally {
@@ -296,175 +331,174 @@ export function LeadGeneration({
           <ArrowUpRight size={15} />
         </button>
       </section>
-      <div className="review-grid">
-        <section className="panel input-panel">
-          <div className="panel-heading">
-            <div>
-              <span className="step">01</span>
-              <h2>Lead content</h2>
-            </div>
-            <span className="small-pill">Text</span>
-          </div>
-          <div className="input-body">
-            <textarea
-              className="text-preview"
-              aria-label="Lead content"
-              placeholder="Paste a company profile, executive bio, or inbound message…"
-              value={text}
-              maxLength={MAX_BOX_CHARACTERS}
-              disabled={!!busy}
-              onChange={(e) => {
-                setText(e.target.value);
-                invalidate();
-              }}
-            />
-            <div className="preview-label char-count">
-              <span>
-                {leads.length > 1 && `${leads.length} leads · `}
-                {text.length.toLocaleString()} characters
-              </span>
-              {text.length >= MAX_BOX_CHARACTERS && (
-                <span>Character limit reached</span>
-              )}
-            </div>
-            <div className="upload-help">
-              <Target size={18} />
-              <div>
-                <b>One lead, or a queue of them.</b>
-                <p>
-                  Paste a company profile, an executive bio, or an inbound
-                  message. Separate several leads with a line of{" "}
-                  <code>---</code> to score up to {MAX_BATCH} at once and get
-                  them back ranked.
-                </p>
-              </div>
-            </div>
-            <div className="input-footer">
-              <p>
-                <TriangleAlert size={14} /> Lead content is not stored. Text is
-                sent to TypeSafe for scoring.
-              </p>
-              <button
-                className="primary wide"
-                disabled={!!busy || !!blocked || !configured}
-                onClick={score}
-              >
-                {scoring ? (
-                  <>
-                    <LoaderCircle size={17} className="spin" />
-                    {leads.length > 1
-                      ? `Scoring ${leads.length} leads…`
-                      : "Scoring lead…"}{" "}
-                    {formatElapsed(elapsed)}
-                  </>
-                ) : (
-                  <>
-                    {leads.length > 1
-                      ? `Score ${leads.length} leads`
-                      : "Score lead"}{" "}
-                    <ArrowRight size={17} />
-                  </>
-                )}
-              </button>
-              {!configured ? (
-                <button className="setup-link" onClick={openSettings}>
-                  Connect your TypeSafe API key to score leads{" "}
-                  <ArrowUpRight size={12} />
-                </button>
-              ) : (
-                blocked && (
-                  <p className="blocked-hint" role="status">
-                    {blocked}
-                  </p>
-                )
-              )}
-            </div>
-          </div>
-        </section>
-        <section className="panel results-panel">
+      {scored ? (
+        <section className="panel results-panel wide">
           <div className="panel-heading">
             <div>
               <span className="step">02</span>
               <h2>Lead insights</h2>
             </div>
-            <span className="small-pill">
-              {batch
-                ? `${batch.leads.length} leads`
-                : result
-                  ? "Complete"
-                  : "Overview"}
-            </span>
-          </div>
-          {batch ? (
-            <div className="results-body">
-              <LeadQueue
-                batch={batch}
-                texts={batchTexts}
-                openIndex={openLead}
-                onOpen={setOpenLead}
-              />
+            <div className="panel-actions">
               <button
-                className="secondary reset-lead"
+                className="text-button"
                 onClick={() => {
                   setText("");
+                  setParsed([]);
                   invalidate();
                 }}
               >
-                Score another queue <ArrowRight size={15} />
+                Score another queue <ArrowRight size={14} />
               </button>
             </div>
-          ) : result ? (
-            <div className="results-body">
-              <LeadResultDetail
-                result={result}
-                onReset={() => {
-                  setText("");
-                  invalidate();
+          </div>
+          <div className="results-body">
+            {batch ? (
+              <LeadTable
+                batch={batch}
+                texts={batchTexts}
+                filter={filter}
+                onFilter={setFilter}
+                openId={openLead}
+                onOpen={setOpenLead}
+              />
+            ) : (
+              result && <LeadResultDetail result={result} />
+            )}
+          </div>
+        </section>
+      ) : (
+        <div className="review-grid">
+          <section
+            className={"panel input-panel" + (dragging ? " dragging" : "")}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              readFile(e.dataTransfer.files[0]);
+            }}
+          >
+            <div className="panel-heading">
+              <div>
+                <span className="step">01</span>
+                <h2>Lead content</h2>
+              </div>
+              <div className="panel-actions">
+                <button
+                  className="text-button"
+                  onClick={() => fileInput.current?.click()}
+                >
+                  <Upload size={14} /> Open a file
+                </button>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.md,text/plain,text/csv"
+                  hidden
+                  onChange={(e) => readFile(e.target.files?.[0] ?? undefined)}
+                />
+              </div>
+            </div>
+            <div className="input-body">
+              <textarea
+                className="text-preview"
+                aria-label="Lead content"
+                placeholder={
+                  "Paste anything: one lead, a list, or rows straight out of a spreadsheet.\n\nWe work out where each lead starts and show you before scoring."
+                }
+                value={text}
+                maxLength={MAX_BOX_CHARACTERS}
+                disabled={!!busy}
+                onChange={(e) => readLeads(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") score();
                 }}
               />
-            </div>
-          ) : (
-            <div className="empty-results">
-              <div
-                className={"insight-illustration " + (scoring ? "pulse" : "")}
-              >
-                <span>
-                  <CheckCheck size={29} />
-                </span>
-                <div />
-                <div />
-                <div />
+              {parsed.length > 0 ? (
+                <LeadReview
+                  leads={parsed}
+                  busy={!!busy}
+                  canScore={!!profile && configured && ready.length > 0}
+                  onChange={setParsed}
+                  onScore={score}
+                />
+              ) : (
+                <div className="upload-help">
+                  <Target size={18} />
+                  <div>
+                    <b>One lead, or a hundred.</b>
+                    <p>
+                      Paste a company profile, an executive bio, an inbound
+                      message, or drop a CSV exported from your CRM. Nothing
+                      needs formatting.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="input-footer">
+                {!configured ? (
+                  <button className="setup-link" onClick={openSettings}>
+                    Connect your TypeSafe API key to score leads{" "}
+                    <ArrowUpRight size={12} />
+                  </button>
+                ) : !profile ? (
+                  <p className="blocked-hint" role="status">
+                    Choose or create an ICP profile before scoring.
+                  </p>
+                ) : (
+                  <p>
+                    <TriangleAlert size={14} /> Lead content is not stored. Text
+                    is sent to TypeSafe for scoring. ⌘↵ to score.
+                  </p>
+                )}
               </div>
-              <h3>
-                {scoring
-                  ? leads.length > 1
-                    ? `Scoring ${leads.length} leads against your ICP… ${formatElapsed(elapsed)}`
-                    : `Scoring against your ICP… ${formatElapsed(elapsed)}`
-                  : "One lead. One clear route."}
-              </h3>
-              <p role={scoring ? "status" : undefined}>
-                {scoring
-                  ? `TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route${leads.length > 1 ? `, for ${leads.length} leads` : ""}. This usually takes a second or two per lead.`
-                  : "Choose an ICP and paste lead content. Your priority score and route will appear here."}
-              </p>
-              <div className="result-features">
-                <span>
-                  <Check size={14} /> Priority score
-                </span>
-                <span>
-                  <Check size={14} /> Industry, maturity, intent
-                </span>
-                <span>
-                  <Check size={14} /> Routing decision
-                </span>
-                <span>
-                  <Check size={14} /> Ranked queue + CSV
-                </span>
-              </div>
             </div>
-          )}
-        </section>
-      </div>
+          </section>
+          <section className="panel results-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="step">02</span>
+                <h2>{scoring ? "Scoring" : "What we score"}</h2>
+              </div>
+              <span className="small-pill">
+                {scoring ? formatElapsed(elapsed) : "Overview"}
+              </span>
+            </div>
+            <div className="results-body">
+              {scoring ? (
+                <div className="empty-results">
+                  <div className="insight-illustration pulse">
+                    <span>
+                      <CheckCheck size={29} />
+                    </span>
+                    <div />
+                    <div />
+                    <div />
+                  </div>
+                  <h3>
+                    Scoring {ready.length}{" "}
+                    {ready.length === 1 ? "lead" : "leads"}…{" "}
+                    {formatElapsed(elapsed)}
+                  </h3>
+                  <p role="status">
+                    One request per lead: a question for each ICP criterion,
+                    three rubrics, and the routing decision. About a second
+                    each.
+                  </p>
+                </div>
+              ) : (
+                <IcpSummary
+                  profile={profile}
+                  onEdit={() => setDraft(profile ? toDraft(profile) : blank())}
+                />
+              )}
+            </div>
+          </section>
+        </div>
+      )}
       <div className="template-banner">
         <div>
           <h3>Start with a useful ICP template</h3>
