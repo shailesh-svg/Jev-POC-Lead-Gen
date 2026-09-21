@@ -95,6 +95,29 @@ def test_lead_score_flags_low_confidence(client, lead_profile, provider):
     r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'Some generic inbound message.'})
     assert r.status_code == 200, r.text
     assert r.json()['needs_review'] is True
+    assert r.json()['review_reasons'] == ['Purchase intent confidence 30%']
+
+def test_lead_score_flags_a_guessed_rubric(client, lead_profile, provider):
+    """A rubric the model had no confidence in still feeds the score, so it is flagged."""
+    seen, make = provider
+    make(answers(maturity=(3, .0)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A VP Engineering asked about our platform.'})
+    assert r.status_code == 200, r.text
+    assert r.json()['needs_review'] is True
+    assert r.json()['review_reasons'] == ['Company maturity confidence 0%']
+
+def test_lead_score_tolerates_middling_rubric_confidence(client, lead_profile, provider):
+    """An unsure-but-not-guessing rubric is normal, and must not flag every lead."""
+    seen, make = provider
+    make(answers(industry=(2, .42)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A VP Engineering asked about our platform.'})
+    assert r.status_code == 200, r.text
+    assert r.json()['needs_review'] is False
+    assert r.json()['review_reasons'] == []
 
 def test_lead_score_rejects_unknown_route(client, lead_profile, provider):
     seen, make = provider

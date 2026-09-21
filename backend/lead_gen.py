@@ -9,7 +9,11 @@ from .prompts import LEAD_FIT, LEAD_INDUSTRY, LEAD_MATURITY, LEAD_INTENT, LEAD_R
 from .validation import bounded
 
 WEIGHTS = {'icp_fit': 0.40, 'industry_fit': 0.20, 'company_maturity': 0.15, 'purchase_intent': 0.25}
+# Intent and routing decide what happens to the lead, so they are held to a
+# higher bar. Any rubric answered below GUESS_CONFIDENCE was effectively a
+# guess, and still feeds the priority score, so it is worth a human look.
 REVIEW_CONFIDENCE = 0.5
+GUESS_CONFIDENCE = 0.25
 HOT, WARM = 70, 40
 
 def _level_ratio(score, levels):
@@ -18,6 +22,18 @@ def _level_ratio(score, levels):
 def _level_label(score, levels):
     index = max(0, min(len(levels) - 1, round(score)))
     return levels[index]
+
+def _review_reasons(industry, maturity, intent, route_confidence):
+    """Why this lead needs a human look, in the words shown to the user."""
+    reasons = []
+    if intent[1] < REVIEW_CONFIDENCE:
+        reasons.append(f'Purchase intent confidence {intent[1]:.0%}')
+    if route_confidence < REVIEW_CONFIDENCE:
+        reasons.append(f'Routing confidence {route_confidence:.0%}')
+    for label, (_, confidence) in (('Industry fit', industry), ('Company maturity', maturity)):
+        if confidence < GUESS_CONFIDENCE:
+            reasons.append(f'{label} confidence {confidence:.0%}')
+    return reasons
 
 def _describe(answer, levels):
     """Validate one Score answer and render it for the client."""
@@ -47,8 +63,8 @@ async def score_lead(profile, text, key):
         criteria_results.append({**c, 'fit': round(value * 100, 1)})
     icp_fit = sum(r['fit'] * r['weight'] for r in criteria_results) / sum(r['weight'] for r in criteria_results)
 
-    industry, industry_score, _ = _describe(response.scores['industry_fit'], profile['industry_levels'])
-    maturity, maturity_score, _ = _describe(response.scores['company_maturity'], profile['maturity_levels'])
+    industry, industry_score, industry_confidence = _describe(response.scores['industry_fit'], profile['industry_levels'])
+    maturity, maturity_score, maturity_confidence = _describe(response.scores['company_maturity'], profile['maturity_levels'])
     intent, intent_score, intent_confidence = _describe(response.scores['purchase_intent'], profile['intent_levels'])
 
     route = response.choices['route']
@@ -56,6 +72,13 @@ async def score_lead(profile, text, key):
     if not destination:
         raise ValueError('Unknown routing destination')
     route_confidence = bounded(route.confidence)
+
+    reasons = _review_reasons(
+        (industry_score, industry_confidence),
+        (maturity_score, maturity_confidence),
+        (intent_score, intent_confidence),
+        route_confidence,
+    )
 
     priority = round(100 * (
         WEIGHTS['icp_fit'] * icp_fit / 100
@@ -75,7 +98,8 @@ async def score_lead(profile, text, key):
         'route': route.choice,
         'route_description': destination['description'],
         'route_confidence': round(route_confidence, 2),
-        'needs_review': min(intent_confidence, route_confidence) < REVIEW_CONFIDENCE,
+        'needs_review': bool(reasons),
+        'review_reasons': reasons,
         'profile_name': profile['name'],
         'requests': [request_trace(response)],
     }

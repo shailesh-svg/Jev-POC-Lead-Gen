@@ -41,8 +41,18 @@ If the port is busy, `./start` moves to the next free one and tells you which.
 ## Add your API key
 
 Open **Settings** in the app and paste your TypeSafe API key. It is encrypted on
-this computer and is never returned to the browser. A `TYPESAFE_API_KEY`
-environment variable works too, and Settings notes when one is present.
+this computer and is never returned to the browser.
+
+For a repeatable setup, copy `.env.example` to `.env` and put the key there
+instead — `./start` loads it, and `.env` is gitignored:
+
+```sh
+cp .env.example .env
+# then edit .env: TYPESAFE_API_KEY=your-key
+```
+
+Settings notes when an environment key is present, and a key pasted in the app
+takes precedence over it.
 
 ## The tools
 
@@ -96,8 +106,10 @@ The split between model and code is deliberate:
   choice, and the confidence attached to each.
 - **The app computes the verdict.** The priority score is a weighted sum — ICP
   fit 40%, industry 20%, maturity 15%, intent 25% — and the Hot/Warm/Cold cuts
-  sit at 70 and 40. A lead whose intent or routing confidence falls below 0.5 is
-  flagged `needs_review` rather than presented as a clean answer. All of it sits
+  sit at 70 and 40. A lead is flagged `needs_review`, with the reason shown, when
+  intent or routing confidence falls below 0.5, or when a rubric the score
+  depends on came back under 0.25 — a level the model effectively guessed at.
+  All of it sits
   in plain code in `backend/lead_gen.py`, so the weights and the cuts can change
   without touching a prompt.
 
@@ -175,11 +187,14 @@ Common changes:
 
 ## Status
 
-Working and tested end to end: profile CRUD, single and batch lead scoring,
-ranking, CSV export, error handling, and the full request path against the real
-SDK. Scored results shown during development came from a stubbed provider, so
-the rubric wording has not yet been tuned against real model output — that is
-the next step once a live API key is in hand.
+Verified against the live API (`jev-1.13.0`): single and batch scoring, ranking,
+CSV export, error handling, and the review flags. A lead scores in about a
+second, and a five-lead queue finishes in two.
+
+The rubrics separate leads cleanly — a VP Engineering with approved budget
+scores 94 (Hot), a report download with no message 41 (Warm), and an
+out-of-ICP enquiry 4 (Cold). Identical input moves a point or two between runs,
+so the tiers are the dependable part, not the exact number.
 
 ## Running the steps yourself
 

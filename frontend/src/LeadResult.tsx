@@ -16,8 +16,10 @@ export function LeadResultDetail({
       {result.needs_review && (
         <div className="alert warning" role="status">
           <span>
-            <TriangleAlert size={14} /> Low model confidence on intent or
-            routing. Review this lead before acting on it.
+            <TriangleAlert size={14} /> Check this lead before acting on it
+            {result.review_reasons?.length
+              ? ` — ${result.review_reasons.join(", ")}.`
+              : ": the model was not confident."}
           </span>
         </div>
       )}

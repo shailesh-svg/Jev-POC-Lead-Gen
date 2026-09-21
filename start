@@ -4,6 +4,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Local secrets, if you keep them in a file instead of the Settings tab.
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
 PORT="${PORT:-8000}"
 OPEN=1
 REBUILD=0

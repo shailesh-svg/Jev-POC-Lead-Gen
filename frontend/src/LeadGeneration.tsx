@@ -444,7 +444,7 @@ export function LeadGeneration({
               </h3>
               <p role={scoring ? "status" : undefined}>
                 {scoring
-                  ? `TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route${leads.length > 1 ? `, for ${leads.length} leads` : ""}. This can take up to 90 seconds per lead.`
+                  ? `TypeSafe is scoring ICP fit, industry, maturity, and intent, then choosing a route${leads.length > 1 ? `, for ${leads.length} leads` : ""}. This usually takes a second or two per lead.`
                   : "Choose an ICP and paste lead content. Your priority score and route will appear here."}
               </p>
               <div className="result-features">

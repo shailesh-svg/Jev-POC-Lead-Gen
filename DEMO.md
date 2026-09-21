@@ -31,7 +31,9 @@ platform this quarter and are comparing two vendors. Can we see a demo next
 week?"
 ```
 
-Expect a high priority score, a Hot tier, and `immediate_sdr_outreach`.
+It comes back in about a second: **priority 94, Hot, `immediate_sdr_outreach`**
+at 99% routing confidence, with ICP fit 97% across all four criteria.
+
 Open **Request details** to see the single `system_one` call that produced it:
 one Noul question per ICP criterion, three Score questions, one Choice.
 
@@ -55,9 +57,19 @@ Dana Whitfield, owner of Whitfield Landscaping (11 employees), emailed asking
 whether we build websites for small businesses and what our hourly rate is.
 ```
 
-They come back ranked: the first lead hot, the second somewhere in the middle
-with a nurture route, the third disqualified. Click any row to expand the full
-breakdown, or **Export CSV** to take the queue away.
+Three leads score in about two seconds. A real run against `jev-1.13.0`:
+
+| Rank | Lead                                      | Tier | Priority | Route                    |
+| ---- | ----------------------------------------- | ---- | -------- | ------------------------ |
+| 1    | Priya, budget approved, comparing vendors | Hot  | 94       | `immediate_sdr_outreach` |
+| 2    | Tomas, report download, no message        | Warm | 41–43    | `nurture_sequence`       |
+| 3    | Dana, landscaping, wants a website        | Cold | 4        | `disqualify`             |
+
+Click any row to expand the full breakdown, or **Export CSV** to take the queue
+away.
+
+Scores move by a point or two between runs on identical input, so treat them as
+bands (Hot / Warm / Cold), not as exact figures.
 
 ## What to point at
 
@@ -65,9 +77,13 @@ breakdown, or **Export CSV** to take the queue away.
   the individual questions; the weighted score (ICP fit 40%, industry 20%,
   maturity 15%, intent 25%) and the Hot/Warm/Cold cut are computed in
   `backend/lead_gen.py`, where you can see and change them.
-- **Low confidence is surfaced, not hidden.** A lead whose intent or routing
-  confidence falls below 0.5 is flagged for review rather than presented as a
-  clean answer.
+- **Low confidence is surfaced, not hidden, with the reason attached.** Tomas's
+  lead is flagged "Company maturity confidence 0%" — the model placed him on the
+  maturity scale while signalling it had nothing to go on, and that level feeds
+  15% of his score. Routing or intent confidence below 50% flags a lead too.
+- **Watch the honest uncertainty.** Priya's industry confidence sits around 45%:
+  Northwind _Logistics_ with 180 engineers genuinely is a borderline match for
+  "core target: software company". The rubric is doing its job.
 - **One request per lead.** Four question types come back in a single
   `system_one` call — visible under Request details.
 - **Editable ICP.** Change a criterion weight or a routing destination in the

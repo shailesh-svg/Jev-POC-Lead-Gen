@@ -26,6 +26,7 @@ export type LeadResult = {
   route_description: string;
   route_confidence: number;
   needs_review: boolean;
+  review_reasons?: string[];
   profile_name: string;
 };
 /** One entry of a batch: the server returns either a result or a safe message. */
