@@ -52,7 +52,8 @@
       },
       {
         "name": "disqualify",
-        "description": "Poor ICP fit, wrong industry, or no evidence of a real business need. Disqualify the lead."
+        "description": "Poor ICP fit, wrong industry, or no evidence of a real business need. Disqualify the lead.",
+        "disqualifying": true
       }
     ]
   },
@@ -102,7 +103,8 @@
       },
       {
         "name": "disqualify",
-        "description": "No regulatory obligation or the business is out of scope for financial compliance software. Disqualify the lead."
+        "description": "No regulatory obligation or the business is out of scope for financial compliance software. Disqualify the lead.",
+        "disqualifying": true
       }
     ]
   }

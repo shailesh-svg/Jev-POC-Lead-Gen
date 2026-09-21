@@ -37,12 +37,21 @@ export function LeadResultDetail({
           </div>
         </div>
         <div>
-          <span className={"badge tier-" + result.tier.toLowerCase()}>
-            {result.tier} lead
+          <span
+            className={
+              "badge " +
+              (result.disqualified
+                ? "tier-out"
+                : "tier-" + result.tier.toLowerCase())
+            }
+          >
+            {result.disqualified ? "Disqualified" : `${result.tier} lead`}
           </span>
           <h3>{result.profile_name}</h3>
           <p>
             ICP fit {result.icp_fit}% · Route: {readable(result.route)}
+            {result.disqualified &&
+              " · scored on fit, then ruled out by routing"}
           </p>
         </div>
       </div>
@@ -166,9 +175,16 @@ export function LeadQueue({
                   {readable(lead.result.route)}
                 </span>
                 <span
-                  className={"badge tier-" + lead.result.tier.toLowerCase()}
+                  className={
+                    "badge " +
+                    (lead.result.disqualified
+                      ? "tier-out"
+                      : "tier-" + lead.result.tier.toLowerCase())
+                  }
                 >
-                  {lead.result.tier} {lead.result.priority}
+                  {lead.result.disqualified
+                    ? "Disqualified"
+                    : `${lead.result.tier} ${lead.result.priority}`}
                 </span>
               </>
             ) : (

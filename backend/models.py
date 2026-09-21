@@ -32,6 +32,9 @@ class RoutingOption(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     name: str = Field(min_length=1, max_length=60)
     description: str = Field(min_length=1, max_length=500)
+    # A hard disqualifier beats the weighted score: a well-funded, perfectly
+    # staffed lead you cannot sell to is not a warm lead.
+    disqualifying: bool = False
 
 class LeadProfile(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)

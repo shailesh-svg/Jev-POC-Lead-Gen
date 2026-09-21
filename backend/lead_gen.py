@@ -87,6 +87,8 @@ async def score_lead(profile, text, key):
         + WEIGHTS['purchase_intent'] * _level_ratio(intent_score, profile['intent_levels'])
     ))
 
+    disqualified = bool(destination.get('disqualifying'))
+
     return {
         'icp_fit': round(icp_fit, 1),
         'criteria': criteria_results,
@@ -94,7 +96,8 @@ async def score_lead(profile, text, key):
         'company_maturity': maturity,
         'purchase_intent': intent,
         'priority': priority,
-        'tier': 'Hot' if priority >= HOT else 'Warm' if priority >= WARM else 'Cold',
+        'tier': 'Cold' if disqualified else 'Hot' if priority >= HOT else 'Warm' if priority >= WARM else 'Cold',
+        'disqualified': disqualified,
         'route': route.choice,
         'route_description': destination['description'],
         'route_confidence': round(route_confidence, 2),

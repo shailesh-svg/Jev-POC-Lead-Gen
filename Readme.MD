@@ -61,7 +61,10 @@ takes precedence over it.
 Define an **ICP profile**: who you sell to, the criteria that make a lead a fit
 (each weighted 1–10), ordered level descriptions for industry fit, company
 maturity and purchase intent, and the routing destinations you want a lead sent
-to. Two templates ship with the app — an enterprise DevOps platform and a
+to. A destination can be marked **disqualifying**: when the model routes a lead
+there, the lead reads as Disqualified however well it scored on fit, because a
+well-funded, perfectly staffed lead you are not allowed to sell to is not a warm
+lead. Two templates ship with the app — an enterprise DevOps platform and a
 mid-market fintech compliance product — and both are editable in place.
 
 Paste a lead — a company profile, an executive bio, an inbound message — and the

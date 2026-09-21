@@ -285,6 +285,11 @@ h1 {
   background: #fbf1e0;
   border-color: #f0dfc0;
 }
+.badge.tier-out {
+  color: #8d4a3c;
+  background: #f8ece8;
+  border-color: #eed7cf;
+}
 .badge.tier-cold {
   color: #4a6473;
   background: #edf2f5;

@@ -21,7 +21,7 @@ def lead_profile():
         'routing': [
             {'name': 'immediate_sdr_outreach', 'description': 'Strong fit and intent. Route to SDR now.'},
             {'name': 'nurture_sequence', 'description': 'Reasonable fit, low urgency. Nurture.'},
-            {'name': 'disqualify', 'description': 'Poor fit. Disqualify.'},
+            {'name': 'disqualify', 'description': 'Poor fit. Disqualify.', 'disqualifying': True},
         ],
     }
 
@@ -118,6 +118,35 @@ def test_lead_score_tolerates_middling_rubric_confidence(client, lead_profile, p
     assert r.status_code == 200, r.text
     assert r.json()['needs_review'] is False
     assert r.json()['review_reasons'] == []
+
+def test_disqualifying_route_beats_a_high_score(client, lead_profile, provider):
+    """A lead we cannot sell to is Cold however well it scores on fit."""
+    seen, make = provider
+    make(answers(criterion_values=(1, 1), industry=(2, .9), maturity=(3, .9), intent=(3, .9), route=('disqualify', .95)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    r = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A hospital IT department asked about our platform.'})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body['icp_fit'] == 100.0
+    assert body['priority'] >= 70          # it would have been Hot on fit alone
+    assert body['tier'] == 'Cold'
+    assert body['disqualified'] is True
+
+def test_ordinary_routes_do_not_disqualify(client, lead_profile, provider):
+    seen, make = provider
+    make(answers(route=('nurture_sequence', .9)))
+    id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
+    client.put('/api/settings', json={'api_key': 'test-key'})
+    body = client.post('/api/lead-scores', json={'lead_profile_id': id, 'text': 'A VP Engineering asked about our platform.'}).json()
+    assert body['disqualified'] is False
+    assert body['tier'] in ('Hot', 'Warm')
+
+def test_routing_flag_is_optional_and_round_trips(client, lead_profile):
+    """Profiles saved before the flag existed keep working, and the flag survives a save."""
+    plain = client.post('/api/lead-profiles', json=lead_profile).json()
+    assert plain['routing'][2]['disqualifying'] is True
+    assert plain['routing'][0]['disqualifying'] is False
 
 def test_lead_score_rejects_unknown_route(client, lead_profile, provider):
     seen, make = provider

@@ -1,7 +1,11 @@
 import type { ApiRequest } from "./PromptDetails";
 
 export type Criterion = { name: string; description: string; weight: number };
-export type RoutingOption = { name: string; description: string };
+export type RoutingOption = {
+  name: string;
+  description: string;
+  disqualifying?: boolean;
+};
 export type LeadProfile = {
   id: string;
   name: string;
@@ -25,6 +29,7 @@ export type LeadResult = {
   route: string;
   route_description: string;
   route_confidence: number;
+  disqualified?: boolean;
   needs_review: boolean;
   review_reasons?: string[];
   profile_name: string;
