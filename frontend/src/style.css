@@ -2064,3 +2064,36 @@ textarea {
     display: none;
   }
 }
+
+.lead-drop {
+  min-height: 190px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.lead-drop small {
+  font-size: 9px;
+  color: #a3ad97;
+  display: block;
+  margin-top: 2px;
+}
+.or-paste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 12px;
+  color: #a9b29c;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.or-paste::before,
+.or-paste::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #ecefe4;
+}
+.input-panel.dragging .lead-drop {
+  background: #e8f4e7;
+  border-color: #358368;
+}

@@ -387,12 +387,14 @@ export function LeadGeneration({
                 <h2>Lead content</h2>
               </div>
               <div className="panel-actions">
-                <button
-                  className="text-button"
-                  onClick={() => fileInput.current?.click()}
-                >
-                  <Upload size={14} /> Open a file
-                </button>
+                {!!text && (
+                  <button
+                    className="text-button"
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    <Upload size={14} /> Open a file
+                  </button>
+                )}
                 <input
                   ref={fileInput}
                   type="file"
@@ -403,12 +405,34 @@ export function LeadGeneration({
               </div>
             </div>
             <div className="input-body">
+              {!text && (
+                <>
+                  <button
+                    className={"dropzone lead-drop " + (dragging ? "drag" : "")}
+                    disabled={!!busy}
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    <span className="upload-icon">
+                      <Upload />
+                    </span>
+                    <strong>Drop your leads here</strong>
+                    <span>
+                      or <em>browse files</em> to upload
+                    </span>
+                    <small>
+                      CSV, TSV, TXT or Markdown · one lead per row, or a list ·
+                      up to 2 MB
+                    </small>
+                  </button>
+                  <div className="or-paste">
+                    <span>or paste below</span>
+                  </div>
+                </>
+              )}
               <textarea
                 className="text-preview"
                 aria-label="Lead content"
-                placeholder={
-                  "Paste anything: one lead, a list, or rows straight out of a spreadsheet.\n\nWe work out where each lead starts and show you before scoring."
-                }
+                placeholder="Paste one lead, a list, or rows straight out of a spreadsheet. We work out where each lead starts."
                 value={text}
                 maxLength={MAX_BOX_CHARACTERS}
                 disabled={!!busy}
