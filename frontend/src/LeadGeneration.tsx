@@ -18,12 +18,14 @@ import { IcpSummary } from "./IcpSummary";
 import { LeadResultDetail } from "./LeadResult";
 import { LeadReview } from "./LeadReview";
 import { LeadTable } from "./LeadTable";
+import { ScoringQueue } from "./ScoringQueue";
 import { Modal } from "./Modal";
 import {
   MAX_BATCH,
   MAX_BOX_CHARACTERS,
   MAX_LEAD_CHARACTERS,
   MIN_LEAD_CHARACTERS,
+  leadLabel,
 } from "./leadFormat";
 import { parseLeads, type ParsedLead } from "./leadParse";
 import { usePersisted } from "./usePersistedQueue";
@@ -222,7 +224,12 @@ export function LeadGeneration({
         `${extracted.filename}: ${extracted.characters.toLocaleString()} characters read.`,
       );
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(
+        message === "Not Found"
+          ? "This server is running older code without file support. Stop it and run ./start again, then retry."
+          : message,
+      );
     } finally {
       setBusy("");
     }
@@ -444,8 +451,8 @@ export function LeadGeneration({
                       or <em>browse files</em> to upload
                     </span>
                     <small>
-                      CSV, TSV, TXT or Markdown · one lead per row, or a list ·
-                      up to 2 MB
+                      PDF, Word, Excel, CSV, TSV, TXT or Markdown · one lead per
+                      row, or a list · up to 10 MB
                     </small>
                   </button>
                   <div className="or-paste">
@@ -517,26 +524,10 @@ export function LeadGeneration({
             </div>
             <div className="results-body">
               {scoring ? (
-                <div className="empty-results">
-                  <div className="insight-illustration pulse">
-                    <span>
-                      <CheckCheck size={29} />
-                    </span>
-                    <div />
-                    <div />
-                    <div />
-                  </div>
-                  <h3>
-                    Scoring {ready.length}{" "}
-                    {ready.length === 1 ? "lead" : "leads"}…{" "}
-                    {formatElapsed(elapsed)}
-                  </h3>
-                  <p role="status">
-                    One request per lead: a question for each ICP criterion,
-                    three rubrics, and the routing decision. About a second
-                    each.
-                  </p>
-                </div>
+                <ScoringQueue
+                  labels={ready.map((t, i) => leadLabel(t, i))}
+                  elapsed={formatElapsed(elapsed)}
+                />
               ) : (
                 <IcpSummary
                   profile={profile}
