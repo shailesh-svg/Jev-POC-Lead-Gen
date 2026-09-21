@@ -15,7 +15,7 @@ from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 from . import storage
 from .classification import classify, CATEGORIES
 from .evaluation import evaluate
-from .extraction import extract, MAX_BYTES
+from .extraction import extract, extract_document, DOCUMENT_KINDS, MAX_BYTES
 from .lead_gen import score_lead
 from .models import Profile, Settings, LeadProfile
 from .prompts import catalog
@@ -157,6 +157,20 @@ async def classify_pdf(file: UploadFile = File(...)):
         'TypeSafe could not classify this PDF. Try again.',
     )
     return {**result, 'filename': extracted['filename'], 'characters': len(extracted['text'])}
+
+@app.post('/api/lead-extract')
+async def lead_extract(file: UploadFile = File(...)):
+    """Text out of a dropped document, ready to be split into leads in the browser."""
+    data = await file.read(MAX_BYTES + 1)
+    await file.close()
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413, 'Use a file smaller than 10 MB.')
+    text, kind = await run_in_threadpool(extract_document, data, file.filename or '')
+    return {'text': text, 'kind': kind, 'filename': Path(file.filename or 'Upload').name, 'characters': len(text)}
+
+@app.get('/api/lead-file-types')
+def lead_file_types():
+    return {'kinds': list(DOCUMENT_KINDS)}
 
 @app.get('/api/lead-profile-templates')
 def lead_profile_templates():

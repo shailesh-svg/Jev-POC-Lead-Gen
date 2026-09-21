@@ -199,13 +199,33 @@ export function LeadGeneration({
     setParsed(parseLeads(next));
     invalidate();
   }
+  /** Plain text is read here; anything else the server turns into text. */
   async function readFile(file?: File) {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Use a file smaller than 2 MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Use a file smaller than 10 MB.");
       return;
     }
-    readLeads(await file.text());
+    const plain = /\.(csv|tsv|txt|md)$/i.test(file.name);
+    if (plain) return readLeads(await file.text());
+    setBusy("extract");
+    setError("");
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const extracted = await api("/lead-extract", {
+        method: "POST",
+        body: data,
+      });
+      readLeads(extracted.text);
+      setNotice(
+        `${extracted.filename}: ${extracted.characters.toLocaleString()} characters read.`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
   }
   const ready = parsed
     .map((l) => l.text.trim())
@@ -398,7 +418,7 @@ export function LeadGeneration({
                 <input
                   ref={fileInput}
                   type="file"
-                  accept=".csv,.tsv,.txt,.md,text/plain,text/csv"
+                  accept=".pdf,.docx,.xlsx,.csv,.tsv,.txt,.md"
                   hidden
                   onChange={(e) => readFile(e.target.files?.[0] ?? undefined)}
                 />
@@ -415,7 +435,11 @@ export function LeadGeneration({
                     <span className="upload-icon">
                       <Upload />
                     </span>
-                    <strong>Drop your leads here</strong>
+                    <strong>
+                      {busy === "extract"
+                        ? "Reading your file…"
+                        : "Drop your leads here"}
+                    </strong>
                     <span>
                       or <em>browse files</em> to upload
                     </span>

@@ -64,18 +64,21 @@ maturity and purchase intent, and the routing destinations you want a lead sent
 to. A destination can be marked **disqualifying**: when the model routes a lead
 there, the lead reads as Disqualified however well it scored on fit, because a
 well-funded, perfectly staffed lead you are not allowed to sell to is not a warm
-lead. Two templates ship with the app — an enterprise DevOps platform and a
-mid-market fintech compliance product — and both are editable in place.
+lead. Three templates ship with the app — a healthcare AI evaluations profile
+calibrated against a real prospect list, an enterprise DevOps platform, and a
+mid-market fintech compliance product — and all are editable in place.
 
 Paste a lead — a company profile, an executive bio, an inbound message — and the
 app returns a priority score out of 100, a Hot/Warm/Cold tier, a level and model
 confidence for each of the three rubrics, a per-criterion fit breakdown, and one
 routing decision with its confidence.
 
-Separate leads with a line of `---` to score up to ten at once. They come back
-ranked by priority, each row expandable into the full breakdown, and
-`Export CSV` saves the queue. A lead that fails carries its own message rather
-than sinking the batch.
+Paste one lead or a hundred, or drop a file — PDF, Word, Excel, CSV, TSV, text
+or Markdown. Nothing needs formatting: the app works out where each lead starts
+and shows you the rows it found, so a wrong split costs one click. Up to 25
+score at a time, and they come back as a ranked, filterable queue with a detail
+drawer; `Export CSV` saves what you are looking at. A lead that fails carries
+its own message rather than sinking the batch.
 
 [DEMO.md](DEMO.md) walks through both paths with sample leads to paste.
 
@@ -162,10 +165,10 @@ DEMO.md            Five-minute walkthrough
   `backend/data/align.db` (override with `ALIGN_DATA_DIR`).
 - Prompts instruct the model to treat submitted content as data, never as
   instructions.
-- Limits: a lead is 20–20,000 characters and a queue holds 10, with 3 requests
-  in flight; a PDF is at most 10 MB, 50 pages and 60,000 characters of text, and
-  must have selectable text (scans are not supported); each request gives up
-  after 90 seconds.
+- Limits: a lead is 20–20,000 characters and a queue holds 25, with 3 requests
+  in flight; an uploaded file is at most 10 MB and a PDF at most 50 pages, and a
+  file must contain selectable text (scans and images are not supported); each
+  request gives up after 90 seconds.
 
 ## Development
 

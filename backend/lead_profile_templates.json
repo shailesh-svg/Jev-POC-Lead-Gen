@@ -1,5 +1,84 @@
 [
   {
+    "name": "Healthcare AI evaluations",
+    "icp_description": "We sell Managed Healthcare AI Evaluations: we design tests, run weekly evals, analyze failures, and recommend prompt, model and cost fixes for clinical AI agents. Plans run $499-$4,999+/mo and the cold CTA is a free 30-minute evaluation gap assessment. Our buyers are product-led healthcare software and AI companies, Seed to Series C, US-primary, shipping agents for clinical documentation, patient communication, or intake and triage. The buyer is a Founder/CEO, CTO/VP Engineering, Head of AI/ML or Head of Product who owns agent reliability; Compliance or AI Governance often co-signs. Prior-authorization and coding workflows are expansion, not the wedge. We do not sell to hospitals or health systems as the direct buyer, to non-healthcare AI companies, to hyperscalers or EHR incumbents, or to peer AI eval and safety vendors. Entry work uses mock or development data only, never PHI.",
+    "criteria": [
+      {
+        "name": "Target clinical workflow",
+        "description": "The company ships or is building an AI agent for clinical documentation, patient communication, or intake and triage. Revenue-cycle, prior-authorization, coding, credentialing or dental-only products count only as adjacent, not as the core wedge.",
+        "weight": 3
+      },
+      {
+        "name": "Decision-maker named",
+        "description": "A Founder, CEO, CTO, VP Engineering, Head of AI/ML or Head of Product is identified by name or title. A junior, business development, marketing or unnamed company inbox contact does not satisfy this.",
+        "weight": 3
+      },
+      {
+        "name": "Agent in production or expanding",
+        "description": "Explicit evidence the AI agent is live with real clinics or users, or is actively being expanded, rather than an idea, a pilot with no users, or general AI interest.",
+        "weight": 3
+      },
+      {
+        "name": "Product-led company, not hospital IT",
+        "description": "A healthcare software or AI product company between Seed and Series C. Hospitals, health systems, hyperscalers, EHR incumbents and peer AI evaluation vendors do not satisfy this.",
+        "weight": 2
+      },
+      {
+        "name": "Reliability or compliance trigger",
+        "description": "A named eval, quality or compliance pressure: a health-system vendor review or security questionnaire, a recent model or prompt change, quiet failures, missed escalations, wrong fields, denials, or rising support load.",
+        "weight": 2
+      },
+      {
+        "name": "US go-to-market",
+        "description": "The company sells into US clinics or providers. A non-US headquarters is fine when US customers are evident; no US go-to-market does not satisfy this.",
+        "weight": 1
+      },
+      {
+        "name": "No mature in-house eval function",
+        "description": "No established internal clinical-agent evaluation team. Hiring for evals, or having a single engineer on it, still satisfies this; a staffed eval or model-quality org does not.",
+        "weight": 1
+      }
+    ],
+    "industry_levels": [
+      "Out of scope: non-healthcare, or the primary buyer is a hospital or health system, a hyperscaler, an EHR incumbent, or a competing AI evaluation vendor",
+      "Adjacent healthcare: revenue cycle, prior authorization, coding, credentialing, dental-only, or payer-facing dialers",
+      "Healthcare AI sold to clinics, but outside the wedge workflows",
+      "Core target: healthcare AI for clinical documentation, patient communication, or intake and triage, sold primarily to clinics and practices",
+      "Core target and EHR-adjacent at scale, serving multiple clinic groups"
+    ],
+    "maturity_levels": [
+      "Stage unclear from the available evidence",
+      "Pre-seed or seed, first customers",
+      "Series A to B, shipping to paying clinics",
+      "Late Series B to C, multiple clinic groups and formal vendor reviews"
+    ],
+    "intent_levels": [
+      "No stated need, no agent surface, or an explicit brush-off",
+      "Generic AI interest, a deck request, or pricing asked with no workflow named",
+      "Actively shipping or expanding a clinical agent, with reliability implied",
+      "Named failure mode, vendor review, security questionnaire, or an eval or coverage-gap question with a timeline"
+    ],
+    "routing": [
+      {
+        "name": "immediate_outreach",
+        "description": "Strong ICP fit with a named decision-maker and a live or expanding agent. Send the evaluation gap assessment offer now."
+      },
+      {
+        "name": "sequence_t1",
+        "description": "Good fit but the trigger is soft or the contact is a shared company inbox. Put into the standard first-touch sequence."
+      },
+      {
+        "name": "nurture_pause",
+        "description": "Plausible fit with a real blocker right now: adjacent workflow, no agent evidence yet, or non-US go-to-market. Hold and revisit."
+      },
+      {
+        "name": "disqualify",
+        "description": "Hospital or health system buyer, non-healthcare, hyperscaler, EHR incumbent, peer evaluation vendor, or no workable contact.",
+        "disqualifying": true
+      }
+    ]
+  },
+  {
     "name": "Enterprise DevOps Platform",
     "icp_description": "We sell a CI/CD and infrastructure observability platform to engineering organizations with more than 50 engineers. Buyers are VP Engineering, Head of Platform, or DevOps leads who own build pipelines and production reliability. We do not target agencies or single-developer teams.",
     "criteria": [

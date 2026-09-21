@@ -58,9 +58,14 @@ def test_lead_profile_crud_and_validation(client, lead_profile):
 
 def test_lead_profile_templates_are_valid(client):
     templates = client.get('/api/lead-profile-templates').json()
-    assert len(templates) == 2
+    assert len(templates) == 3
     for t in templates:
         LeadProfile.model_validate(t)
+    evals = templates[0]
+    assert evals['name'] == 'Healthcare AI evaluations'
+    # The shipped profiles must carry the hard stop, or a disqualified lead reads as warm.
+    for t in templates:
+        assert any(r.get('disqualifying') for r in t['routing'])
 
 def test_lead_score_requires_key(client, lead_profile):
     id = client.post('/api/lead-profiles', json=lead_profile).json()['id']
